@@ -1,0 +1,16 @@
+services:
+  db:
+    image: postgres:16-alpine
+    container_name: mpixel-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: mpixel
+      POSTGRES_PASSWORD: mpixel
+      POSTGRES_DB: mpixel
+    ports:
+      - "5433:5432"
+    volumes:
+      - db-data:/var/lib/postgresql/data
+
+volumes:
+  db-data:
