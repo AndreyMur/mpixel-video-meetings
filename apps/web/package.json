@@ -11,9 +11,16 @@
     "format:check": "prettier --check ."
   },
   "dependencies": {
+    "@gravity-ui/icons": "^2.21.0",
+    "@heroui/react": "^3.2.4",
+    "@heroui/styles": "^3.2.4",
+    "@tailwindcss/postcss": "^4.3.3",
     "next": "16.3.0",
+    "postcss": "^8.5.23",
     "react": "19.2.8",
-    "react-dom": "19.2.8"
+    "react-dom": "19.2.8",
+    "tailwind-variants": "^3.3.1",
+    "tailwindcss": "^4.3.3"
   },
   "devDependencies": {
     "@types/node": "^20",
