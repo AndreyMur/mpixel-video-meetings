@@ -1,0 +1,29 @@
+import { CommandHandler, ICommandHandler } from '@nestjs/cqrs';
+import { NotFoundException } from '@nestjs/common';
+import { PrismaService } from '../../prisma/prisma.service';
+import { StorageService } from '../../storage/storage.service';
+import { DeleteFileCommand } from './delete-file.command';
+
+@CommandHandler(DeleteFileCommand)
+export class DeleteFileHandler implements ICommandHandler<DeleteFileCommand> {
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly storage: StorageService,
+  ) {}
+
+  async execute(command: DeleteFileCommand): Promise<void> {
+    const file = await this.prisma.meetingFile.findFirst({
+      where: {
+        id: command.fileId,
+        meetingId: command.meetingId,
+        userId: command.userId,
+      },
+    });
+    if (!file) {
+      throw new NotFoundException('File not found');
+    }
+
+    await this.storage.deleteObject(file.objectKey);
+    await this.prisma.meetingFile.delete({ where: { id: file.id } });
+  }
+}
