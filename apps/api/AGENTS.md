@@ -27,9 +27,10 @@ Run from this directory or via workspace from the repo root (`npm run <script> -
 ## Structure
 
 - Entry point: `src/main.ts` — listens on `process.env.PORT ?? 4000`, global `ValidationPipe`
-- Root module: `src/app.module.ts` (imports `ConfigModule`, `PrismaModule`, `AuthModule`; provides `AppController`, `AppService`)
+- Root module: `src/app.module.ts` (imports `ConfigModule`, `PrismaModule`, `UsersModule`, `AuthModule`, `MeetingsModule`; provides `AppController`, `AppService`)
 - `src/prisma/` — global `PrismaModule`/`PrismaService`
-- `src/auth/` — `AuthModule` with `POST /auth/register` (201 + `{ accessToken }`) and `POST /auth/login` (200 + `{ accessToken }`); uses CQRS (`RegisterUserCommand`/handler, `LoginUserQuery`/handler), shared `TokenService`; exports `JwtAuthGuard` + `JwtModule`; exposes `@CurrentUser` param decorator (`CurrentUserPayload { sub, email }`)
+- `src/users/` — `UsersModule` owning all user persistence via CQRS: `CreateUserCommand`/handler (email uniqueness check, bcrypt hashing, create) and `FindUserByEmailQuery`/handler; exports `CqrsModule` so other modules can dispatch via `CommandBus`/`QueryBus`
+- `src/auth/` — `AuthModule` with `POST /auth/register` (201 + `{ accessToken }`) and `POST /auth/login` (200 + `{ accessToken }`); responsible for token generation and credential checks; registers `RegisterUserCommand`/handler and `LoginUserQuery`/handler which orchestrate the `UsersModule` through CQRS (`CreateUserCommand`, `FindUserByEmailQuery`) and sign tokens via shared `TokenService`; exports `JwtAuthGuard` + `JwtModule`; exposes `@CurrentUser` param decorator (`CurrentUserPayload { sub, email }`)
 - `src/meetings/` — `MeetingsModule` with `POST /meetings`, `GET /meetings`, `GET /meetings/:id`; all protected by `JwtAuthGuard`; uses CQRS (`CreateMeetingCommand`, `GetMeetingsQuery`, `GetMeetingQuery`), `CreateMeetingDto` (`title`, `date`, `participants`), Prisma `Meeting` model scoped to the current user
 - Follow NestJS conventions: modules, controllers, services/providers, controllers with dependencies injected via constructors and `@nestjs/common` decorators.
 
