@@ -43,3 +43,7 @@ When editing files inside `apps/web`, follow the rules in `apps/web/AGENTS.md` (
 
 - Keep this file and the per-app `AGENTS.md` files up to date: when the project architecture changes (new apps/packages/workspaces, new commands/scripts, changed conventions, renamed/removed modules), update the relevant documentation in the same change.
 - When adding a new workspace, describe it in the "Workspace structure" section and add it to the `workspaces` list if applicable.
+
+## File upload
+
+Use this research for it: @docs/research-meeting-upload.md
