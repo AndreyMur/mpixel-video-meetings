@@ -1,5 +1,6 @@
 'use client';
 
+import Link from 'next/link';
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import {
@@ -91,6 +92,7 @@ export default function Home() {
   const [meetings, setMeetings] = useState<Meeting[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [email, setEmail] = useState<string | null>(null);
 
   useEffect(() => {
     const user = getSessionUser();
@@ -109,6 +111,7 @@ export default function Home() {
     getMeetings(token)
       .then((data) => {
         if (!cancelled) {
+          setEmail(user.email);
           setMeetings(data);
           setError(null);
         }
@@ -169,7 +172,6 @@ export default function Home() {
     );
   }
 
-  const email = getSessionUser()?.email ?? null;
   const lastMeetings = meetings.slice(0, 3);
 
   return (
@@ -220,7 +222,13 @@ export default function Home() {
             </div>
             <div className="grid gap-4 sm:grid-cols-3">
               {lastMeetings.map((meeting) => (
-                <MeetingCard key={meeting.id} meeting={meeting} />
+                <Link
+                  key={meeting.id}
+                  href={`/meetings/${meeting.id}`}
+                  className="transition-opacity hover:opacity-80"
+                >
+                  <MeetingCard meeting={meeting} />
+                </Link>
               ))}
             </div>
           </section>
@@ -249,7 +257,13 @@ export default function Home() {
           ) : (
             <div className="grid gap-4">
               {meetings.map((meeting) => (
-                <MeetingCard key={meeting.id} meeting={meeting} />
+                <Link
+                  key={meeting.id}
+                  href={`/meetings/${meeting.id}`}
+                  className="transition-opacity hover:opacity-80"
+                >
+                  <MeetingCard meeting={meeting} />
+                </Link>
               ))}
             </div>
           )}
