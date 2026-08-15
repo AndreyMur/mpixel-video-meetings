@@ -15,6 +15,7 @@ const HOP_BY_HOP_HEADERS = new Set([
   'te',
   'trailer',
   'trailers',
+  'accept-encoding',
 ]);
 
 const RESPONSE_HEADERS = [
@@ -35,12 +36,23 @@ async function proxy(request: NextRequest) {
       headers.set(name, value);
     }
   });
-  headers.set('x-forwarded-host', request.headers.get('host') ?? '');
+  headers.set('x-forwarded-proto', request.nextUrl.protocol.replace(':', ''));
+  headers.set(
+    'x-forwarded-host',
+    request.headers.get('x-forwarded-host') ??
+      request.headers.get('host') ??
+      '',
+  );
+  const forwardedFor = request.headers.get('x-forwarded-for');
+  if (forwardedFor) {
+    headers.set('x-forwarded-for', forwardedFor);
+  }
 
   const init: RequestInit = {
     method: request.method,
     headers,
     redirect: 'manual',
+    signal: AbortSignal.timeout(10 * 60 * 1000),
   };
 
   const hasBody = request.method !== 'GET' && request.method !== 'HEAD';

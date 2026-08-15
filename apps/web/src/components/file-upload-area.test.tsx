@@ -102,7 +102,7 @@ describe('FileUploadArea', () => {
   });
 
   it('passes dropped files to onUploadFiles', () => {
-    const onUploadFiles = vi.fn();
+    const onUploadFiles = vi.fn().mockReturnValue(true);
     const { container } = render(
       <FileUploadArea
         isUploading={false}
@@ -137,7 +137,7 @@ describe('FileUploadArea', () => {
   });
 
   it('passes a picked file from the input to onUploadFiles', () => {
-    const onUploadFiles = vi.fn();
+    const onUploadFiles = vi.fn().mockReturnValue(true);
     const { container } = render(
       <FileUploadArea
         isUploading={false}
@@ -158,12 +158,26 @@ describe('FileUploadArea', () => {
         isUploading={false}
         uploadProgress={null}
         uploadError={null}
-        onUploadFiles={vi.fn()}
+        onUploadFiles={vi.fn().mockReturnValue(true)}
       />,
     );
     const input = container.querySelector('input[type="file"]')!;
     fireEvent.change(input, { target: { files: [makeFile('report.pdf')] } });
     expect(screen.getByText('report.pdf')).toBeInTheDocument();
+  });
+
+  it('clears the selected file when onUploadFiles rejects the pick', () => {
+    const { container } = render(
+      <FileUploadArea
+        isUploading={false}
+        uploadProgress={null}
+        uploadError={null}
+        onUploadFiles={vi.fn().mockReturnValue(false)}
+      />,
+    );
+    const input = container.querySelector('input[type="file"]')!;
+    fireEvent.change(input, { target: { files: [makeFile('report.pdf')] } });
+    expect(screen.queryByText('report.pdf')).not.toBeInTheDocument();
   });
 
   it('disables the upload button while uploading', () => {
