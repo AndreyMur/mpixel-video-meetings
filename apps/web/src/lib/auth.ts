@@ -68,7 +68,7 @@ export class ApiError extends Error {
   }
 }
 
-async function parseError(res: Response): Promise<ApiError> {
+export async function parseError(res: Response): Promise<ApiError> {
   let body: ApiErrorBody | undefined;
   try {
     body = (await res.json()) as ApiErrorBody;
@@ -128,4 +128,19 @@ export async function getMeetings(token: string): Promise<Meeting[]> {
   }
 
   return (await res.json()) as Meeting[];
+}
+
+export async function getMeeting(
+  meetingId: string,
+  token: string,
+): Promise<Meeting> {
+  const res = await fetch(`/api/meetings/${meetingId}`, {
+    headers: { Authorization: `Bearer ${token}` },
+  });
+
+  if (!res.ok) {
+    throw await parseError(res);
+  }
+
+  return (await res.json()) as Meeting;
 }
