@@ -1,0 +1,15 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "outDir": "./dist-worker",
+    "incremental": false,
+    "tsBuildInfoFile": "./dist-worker/tsconfig.worker.tsbuildinfo"
+  },
+  "include": [
+    "src/worker/**/*",
+    "src/processing/**/*",
+    "src/prisma/**/*",
+    "src/storage/**/*"
+  ],
+  "exclude": ["node_modules", "dist", "test"]
+}

@@ -1,0 +1,11 @@
+node_modules
+dist
+**/dist
+dist-worker
+**/dist-worker
+.git
+.env
+**/.env
+*.log
+coverage
+.agents

@@ -31,6 +31,50 @@ services:
       timeout: 5s
       retries: 5
 
+  redis:
+    image: redis:7-alpine
+    container_name: mpixel-redis
+    restart: unless-stopped
+    ports:
+      - '6379:6379'
+    volumes:
+      - redis-data:/data
+    healthcheck:
+      test: ['CMD', 'redis-cli', 'ping']
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  api-worker:
+    profiles: ['worker']
+    build:
+      context: .
+      dockerfile: apps/api/Dockerfile
+    container_name: mpixel-api-worker
+    restart: unless-stopped
+    command: node apps/api/dist-worker/worker/main.js
+    environment:
+      NODE_ENV: production
+      DATABASE_URL: postgresql://mpixel:mpixel@db:5432/mpixel?schema=public
+      JWT_SECRET: dev-secret-change-me
+      S3_ENDPOINT: http://minio:9000
+      S3_REGION: us-east-1
+      S3_ACCESS_KEY: minioadmin
+      S3_SECRET_KEY: minioadmin
+      S3_BUCKET: mpixel
+      REDIS_URL: redis://redis:6379
+      WORKER_CONCURRENCY: '1'
+      WORKER_ATTEMPTS: '3'
+      WORKER_BACKOFF_MS: '5000'
+    depends_on:
+      db:
+        condition: service_started
+      redis:
+        condition: service_healthy
+      minio:
+        condition: service_healthy
+
 volumes:
   db-data:
   minio-data:
+  redis-data:

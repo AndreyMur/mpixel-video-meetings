@@ -6,6 +6,7 @@ import { AuthModule } from './auth/auth.module';
 import { FilesModule } from './files/files.module';
 import { MeetingsModule } from './meetings/meeting.module';
 import { PrismaModule } from './prisma/prisma.module';
+import { ProcessingModule } from './processing/processing.module';
 import { StorageModule } from './storage/storage.module';
 import { UsersModule } from './users/users.module';
 
@@ -17,6 +18,7 @@ import { UsersModule } from './users/users.module';
     UsersModule,
     AuthModule,
     MeetingsModule,
+    ProcessingModule,
     FilesModule,
   ],
   controllers: [AppController],

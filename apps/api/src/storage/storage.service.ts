@@ -9,7 +9,11 @@ import {
   S3Client,
 } from '@aws-sdk/client-s3';
 import type { GetObjectCommandOutput } from '@aws-sdk/client-s3';
-import type { Readable } from 'node:stream';
+import { createWriteStream } from 'node:fs';
+import { Readable, pipeline } from 'node:stream';
+import { promisify } from 'node:util';
+
+const streamPipeline = promisify(pipeline);
 
 @Injectable()
 export class StorageService implements OnModuleInit {
@@ -60,6 +64,12 @@ export class StorageService implements OnModuleInit {
     return this.client.send(
       new GetObjectCommand({ Bucket: this.bucket, Key: key }),
     );
+  }
+
+  async downloadToFile(key: string, destinationPath: string): Promise<void> {
+    const object = await this.getObject(key);
+    const body = object.Body as Readable;
+    await streamPipeline(body, createWriteStream(destinationPath));
   }
 
   async deleteObject(key: string): Promise<void> {
