@@ -15,7 +15,7 @@ interface FileUploadAreaProps {
   isUploading: boolean;
   uploadProgress: number | null;
   uploadError: string | null;
-  onUploadFiles: (files: File[]) => void;
+  onUploadFiles: (files: File[]) => boolean;
 }
 
 export function FileUploadArea({
@@ -33,8 +33,8 @@ export function FileUploadArea({
     if (!file) {
       return;
     }
-    setSelectedFile(file);
-    onUploadFiles(files);
+    const accepted = onUploadFiles(files);
+    setSelectedFile(accepted ? file : null);
   };
 
   const handleInputChange = (event: React.ChangeEvent<HTMLInputElement>) => {

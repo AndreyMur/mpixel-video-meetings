@@ -297,8 +297,14 @@ export default function MeetingDetailPage() {
               : 0;
           setUploadProgress(percent);
         });
-        const freshFiles = await getMeetingFiles(meetingId, token);
-        setFiles(freshFiles);
+        try {
+          const freshFiles = await getMeetingFiles(meetingId, token);
+          setFiles(freshFiles);
+        } catch {
+          setUploadError(
+            'Файл загружен, но не удалось обновить список. Обновите страницу.',
+          );
+        }
         setUploadProgress(null);
       },
       (message) => {
@@ -309,18 +315,19 @@ export default function MeetingDetailPage() {
     setIsUploading(false);
   };
 
-  const handleFiles = (files: File[]) => {
+  const handleFiles = (files: File[]): boolean => {
     const file = files[0];
-    if (!file) {
-      return;
+    if (!file || isUploading) {
+      return false;
     }
     const validationError = validateMeetingFile(file);
     if (validationError) {
       setUploadError(validationError);
-      return;
+      return false;
     }
     setUploadError(null);
     void upload(file);
+    return true;
   };
 
   const handleDelete = async (file: MeetingFile) => {
