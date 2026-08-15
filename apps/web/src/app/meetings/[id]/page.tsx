@@ -7,7 +7,6 @@ import {
   CircleCheckFill,
   CircleFill,
   Clock,
-  CloudArrowUpIn,
   FileArrowDown,
   FileText,
   Paperclip,
@@ -19,7 +18,7 @@ import {
 } from '@gravity-ui/icons';
 import Link from 'next/link';
 import { useParams, useRouter } from 'next/navigation';
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useState } from 'react';
 import {
   AlertDialog,
   Button,
@@ -30,6 +29,7 @@ import {
   Table,
   Tooltip,
 } from '@heroui/react';
+import { FileUploadArea } from '@/components/file-upload-area';
 import {
   ApiError,
   clearAccessToken,
@@ -192,10 +192,9 @@ export default function MeetingDetailPage() {
     setEmail(null);
   }
 
-  const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [isUploading, setIsUploading] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState<number | null>(null);
   const [uploadError, setUploadError] = useState<string | null>(null);
-  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const [deletingFileId, setDeletingFileId] = useState<string | null>(null);
   const [downloadingFileId, setDownloadingFileId] = useState<string | null>(
@@ -287,35 +286,40 @@ export default function MeetingDetailPage() {
       return;
     }
     setIsUploading(true);
+    setUploadProgress(0);
     setUploadError(null);
     await runAuthorized(
       async () => {
-        const created = await uploadMeetingFile(meetingId, token, file);
-        setFiles((prev) => [created, ...prev]);
-        setSelectedFile(null);
+        await uploadMeetingFile(meetingId, token, file, (progress) => {
+          const percent =
+            progress.total > 0
+              ? Math.round((progress.loaded / progress.total) * 100)
+              : 0;
+          setUploadProgress(percent);
+        });
+        const freshFiles = await getMeetingFiles(meetingId, token);
+        setFiles(freshFiles);
+        setUploadProgress(null);
       },
       (message) => {
-        setSelectedFile(null);
+        setUploadProgress(null);
         setUploadError(message);
       },
     );
     setIsUploading(false);
   };
 
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    e.target.value = '';
+  const handleFiles = (files: File[]) => {
+    const file = files[0];
     if (!file) {
       return;
     }
     const validationError = validateMeetingFile(file);
     if (validationError) {
       setUploadError(validationError);
-      setSelectedFile(null);
       return;
     }
     setUploadError(null);
-    setSelectedFile(file);
     void upload(file);
   };
 
@@ -461,210 +465,152 @@ export default function MeetingDetailPage() {
         ) : null}
 
         <section className="flex flex-col gap-4">
-          <Card variant="secondary">
-            <Card.Header className="flex-col items-start gap-3 sm:flex-row sm:items-center sm:justify-between">
-              <div className="flex flex-col gap-1">
-                <Card.Title className="flex items-center gap-2">
-                  <Paperclip className="size-4 text-accent" />
-                  Файлы встречи
-                </Card.Title>
-                <Card.Description className="text-xs">
-                  PDF, документы Office, аудио или видео до 50 МБ
-                </Card.Description>
-              </div>
-              <div className="flex flex-col items-start gap-2 sm:items-end">
-                <input
-                  ref={fileInputRef}
-                  type="file"
-                  className="hidden"
-                  accept=".pdf,.txt,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.mp3,.wav,.m4a,.mp4,.webm"
-                  onChange={handleFileChange}
-                />
-                <Button
-                  isPending={isUploading}
-                  isDisabled={isUploading}
-                  onPress={() => fileInputRef.current?.click()}
-                >
-                  {({ isPending: loading }) => (
-                    <>
-                      {loading ? (
-                        <Spinner color="current" size="sm" />
-                      ) : (
-                        <CloudArrowUpIn className="size-4" />
-                      )}
-                      {loading ? 'Загрузка…' : 'Загрузить файл'}
-                    </>
-                  )}
-                </Button>
-                {selectedFile ? (
-                  <span className="inline-flex max-w-full items-center gap-2 text-xs text-muted">
-                    <FileText className="size-3.5 shrink-0" />
-                    <span className="truncate">{selectedFile.name}</span>
-                  </span>
-                ) : null}
-              </div>
-            </Card.Header>
-            <Card.Content className="flex-col gap-3">
-              {uploadError ? (
-                <p
-                  role="alert"
-                  className="flex items-center gap-2 text-sm text-danger"
-                >
-                  <TriangleExclamation className="size-4 shrink-0" />
-                  {uploadError}
-                </p>
-              ) : null}
+          <FileUploadArea
+            isUploading={isUploading}
+            uploadProgress={uploadProgress}
+            uploadError={uploadError}
+            onUploadFiles={handleFiles}
+          />
 
-              {files.length === 0 ? (
-                <div className="flex flex-col items-center gap-2 py-8 text-center">
-                  <Paperclip className="size-9 text-muted" />
-                  <p className="text-base font-medium text-foreground">
-                    Пока нет ни одного файла
-                  </p>
-                  <p className="max-w-sm text-sm text-muted">
-                    Загрузите первый файл встречи, и он появится в этом списке.
-                  </p>
-                </div>
-              ) : (
-                <Table>
-                  <Table.ScrollContainer>
-                    <Table.Content
-                      aria-label="Файлы встречи"
-                      className="min-w-[560px]"
-                    >
-                      <Table.Header>
-                        <Table.Column isRowHeader>Файл</Table.Column>
-                        <Table.Column>Размер</Table.Column>
-                        <Table.Column>Загружен</Table.Column>
-                        <Table.Column>Статус</Table.Column>
-                        <Table.Column />
-                      </Table.Header>
-                      <Table.Body>
-                        {files.map((file) => (
-                          <Table.Row key={file.id}>
-                            <Table.Cell>
-                              <div className="flex min-w-0 items-center gap-3">
-                                <div className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-accent/15 text-accent">
-                                  <FileText className="size-4.5" />
-                                </div>
-                                <div className="flex min-w-0 flex-col">
-                                  <span className="truncate font-medium">
-                                    {file.name}
-                                  </span>
-                                  <span className="text-xs text-muted">
-                                    {getFileKind(file.name)}
-                                  </span>
-                                </div>
-                              </div>
-                            </Table.Cell>
-                            <Table.Cell>
-                              <span className="text-sm text-muted">
-                                {formatSize(file.size)}
+          {files.length === 0 ? (
+            <div className="flex flex-col items-center gap-2 py-8 text-center">
+              <Paperclip className="size-9 text-muted" />
+              <p className="text-base font-medium text-foreground">
+                Пока нет ни одного файла
+              </p>
+              <p className="max-w-sm text-sm text-muted">
+                Загрузите первый файл встречи, и он появится в этом списке.
+              </p>
+            </div>
+          ) : (
+            <Table>
+              <Table.ScrollContainer>
+                <Table.Content
+                  aria-label="Файлы встречи"
+                  className="min-w-[560px]"
+                >
+                  <Table.Header>
+                    <Table.Column isRowHeader>Файл</Table.Column>
+                    <Table.Column>Размер</Table.Column>
+                    <Table.Column>Загружен</Table.Column>
+                    <Table.Column>Статус</Table.Column>
+                    <Table.Column />
+                  </Table.Header>
+                  <Table.Body>
+                    {files.map((file) => (
+                      <Table.Row key={file.id}>
+                        <Table.Cell>
+                          <div className="flex min-w-0 items-center gap-3">
+                            <div className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-accent/15 text-accent">
+                              <FileText className="size-4.5" />
+                            </div>
+                            <div className="flex min-w-0 flex-col">
+                              <span className="truncate font-medium">
+                                {file.name}
                               </span>
-                            </Table.Cell>
-                            <Table.Cell>
-                              <span className="text-sm text-muted">
-                                {formatDate(file.createdAt)}
+                              <span className="text-xs text-muted">
+                                {getFileKind(file.name)}
                               </span>
-                            </Table.Cell>
-                            <Table.Cell>
-                              <FileStatusChip
-                                status={file.status}
-                                errorMessage={file.errorMessage}
-                              />
-                            </Table.Cell>
-                            <Table.Cell>
-                              <div className="flex items-center justify-end gap-1">
-                                <Tooltip>
-                                  <Button
-                                    isIconOnly
-                                    variant="tertiary"
-                                    size="sm"
-                                    className="min-h-11 min-w-11"
-                                    aria-label={`Скачать ${file.name}`}
-                                    isDisabled={deletingFileId === file.id}
-                                    isPending={downloadingFileId === file.id}
-                                    onPress={() => void handleDownload(file)}
-                                  >
-                                    {downloadingFileId === file.id ? (
-                                      <Spinner color="current" size="sm" />
-                                    ) : (
-                                      <FileArrowDown className="size-4" />
-                                    )}
-                                  </Button>
-                                  <Tooltip.Content>Скачать</Tooltip.Content>
-                                </Tooltip>
-                                <AlertDialog>
-                                  <Button
-                                    isIconOnly
-                                    variant="danger-soft"
-                                    size="sm"
-                                    className="min-h-11 min-w-11"
-                                    aria-label={`Удалить ${file.name}`}
-                                    isDisabled={
-                                      downloadingFileId === file.id ||
-                                      deletingFileId === file.id
-                                    }
-                                    isPending={deletingFileId === file.id}
-                                  >
-                                    {deletingFileId === file.id ? (
-                                      <Spinner color="current" size="sm" />
-                                    ) : (
-                                      <TrashBin className="size-4" />
-                                    )}
-                                  </Button>
-                                  <AlertDialog.Backdrop>
-                                    <AlertDialog.Container>
-                                      <AlertDialog.Dialog>
-                                        <AlertDialog.Header>
-                                          <AlertDialog.Icon />
-                                          <AlertDialog.Heading>
-                                            Удалить файл?
-                                          </AlertDialog.Heading>
-                                        </AlertDialog.Header>
-                                        <AlertDialog.Body>
-                                          <p>
-                                            Файл «{file.name}» будет удалён без
-                                            возможности восстановления.
-                                          </p>
-                                        </AlertDialog.Body>
-                                        <AlertDialog.Footer>
-                                          <Button
-                                            variant="tertiary"
-                                            slot="close"
-                                          >
-                                            Отмена
-                                          </Button>
-                                          <Button
-                                            variant="danger"
-                                            isDisabled={
-                                              deletingFileId === file.id
-                                            }
-                                            isPending={
-                                              deletingFileId === file.id
-                                            }
-                                            onPress={() =>
-                                              void handleDelete(file)
-                                            }
-                                          >
-                                            Удалить
-                                          </Button>
-                                        </AlertDialog.Footer>
-                                      </AlertDialog.Dialog>
-                                    </AlertDialog.Container>
-                                  </AlertDialog.Backdrop>
-                                </AlertDialog>
-                              </div>
-                            </Table.Cell>
-                          </Table.Row>
-                        ))}
-                      </Table.Body>
-                    </Table.Content>
-                  </Table.ScrollContainer>
-                </Table>
-              )}
-            </Card.Content>
-          </Card>
+                            </div>
+                          </div>
+                        </Table.Cell>
+                        <Table.Cell>
+                          <span className="text-sm text-muted">
+                            {formatSize(file.size)}
+                          </span>
+                        </Table.Cell>
+                        <Table.Cell>
+                          <span className="text-sm text-muted">
+                            {formatDate(file.createdAt)}
+                          </span>
+                        </Table.Cell>
+                        <Table.Cell>
+                          <FileStatusChip
+                            status={file.status}
+                            errorMessage={file.errorMessage}
+                          />
+                        </Table.Cell>
+                        <Table.Cell>
+                          <div className="flex items-center justify-end gap-1">
+                            <Tooltip>
+                              <Button
+                                isIconOnly
+                                variant="tertiary"
+                                size="sm"
+                                className="min-h-11 min-w-11"
+                                aria-label={`Скачать ${file.name}`}
+                                isDisabled={deletingFileId === file.id}
+                                isPending={downloadingFileId === file.id}
+                                onPress={() => void handleDownload(file)}
+                              >
+                                {downloadingFileId === file.id ? (
+                                  <Spinner color="current" size="sm" />
+                                ) : (
+                                  <FileArrowDown className="size-4" />
+                                )}
+                              </Button>
+                              <Tooltip.Content>Скачать</Tooltip.Content>
+                            </Tooltip>
+                            <AlertDialog>
+                              <Button
+                                isIconOnly
+                                variant="danger-soft"
+                                size="sm"
+                                className="min-h-11 min-w-11"
+                                aria-label={`Удалить ${file.name}`}
+                                isDisabled={
+                                  downloadingFileId === file.id ||
+                                  deletingFileId === file.id
+                                }
+                                isPending={deletingFileId === file.id}
+                              >
+                                {deletingFileId === file.id ? (
+                                  <Spinner color="current" size="sm" />
+                                ) : (
+                                  <TrashBin className="size-4" />
+                                )}
+                              </Button>
+                              <AlertDialog.Backdrop>
+                                <AlertDialog.Container>
+                                  <AlertDialog.Dialog>
+                                    <AlertDialog.Header>
+                                      <AlertDialog.Icon />
+                                      <AlertDialog.Heading>
+                                        Удалить файл?
+                                      </AlertDialog.Heading>
+                                    </AlertDialog.Header>
+                                    <AlertDialog.Body>
+                                      <p>
+                                        Файл «{file.name}» будет удалён без
+                                        возможности восстановления.
+                                      </p>
+                                    </AlertDialog.Body>
+                                    <AlertDialog.Footer>
+                                      <Button variant="tertiary" slot="close">
+                                        Отмена
+                                      </Button>
+                                      <Button
+                                        variant="danger"
+                                        isDisabled={deletingFileId === file.id}
+                                        isPending={deletingFileId === file.id}
+                                        onPress={() => void handleDelete(file)}
+                                      >
+                                        Удалить
+                                      </Button>
+                                    </AlertDialog.Footer>
+                                  </AlertDialog.Dialog>
+                                </AlertDialog.Container>
+                              </AlertDialog.Backdrop>
+                            </AlertDialog>
+                          </div>
+                        </Table.Cell>
+                      </Table.Row>
+                    ))}
+                  </Table.Body>
+                </Table.Content>
+              </Table.ScrollContainer>
+            </Table>
+          )}
         </section>
       </div>
     </main>
