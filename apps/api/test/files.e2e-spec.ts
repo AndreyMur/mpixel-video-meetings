@@ -85,6 +85,34 @@ describe('Meeting files (e2e)', () => {
       expect(response.body).not.toHaveProperty('objectKey');
     });
 
+    it('preserves cyrillic filenames', async () => {
+      const { token } = await registerUser(app);
+      const meetingId = await createMeeting(token);
+
+      const response = await request(app.getHttpServer())
+        .post(`/meetings/${meetingId}/files`)
+        .set(auth(token))
+        .attach('file', Buffer.from('MPixel cyrillic test'), {
+          filename: 'заметки встреча.txt',
+          contentType: 'text/plain',
+        })
+        .expect(201);
+
+      expect(response.body).toMatchObject({
+        name: 'заметки встреча.txt',
+        status: 'PROCESSING',
+      });
+
+      const list = await request(app.getHttpServer())
+        .get(`/meetings/${meetingId}/files`)
+        .set(auth(token))
+        .expect(200);
+      expect(list.body).toHaveLength(1);
+      expect((list.body as { name: string }[])[0].name).toBe(
+        'заметки встреча.txt',
+      );
+    });
+
     it('returns 413 for a file larger than the limit', async () => {
       const { token } = await registerUser(app);
       const meetingId = await createMeeting(token);

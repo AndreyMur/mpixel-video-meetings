@@ -24,6 +24,7 @@ export function createFileUploadOptions(
       },
     }),
     limits: { fileSize: maxSize },
+    defParamCharset: 'utf8',
     fileFilter: (_req, file, callback) => {
       const extension = extname(file.originalname).toLowerCase().slice(1);
       if (!ALLOWED_EXTENSIONS.has(extension)) {
