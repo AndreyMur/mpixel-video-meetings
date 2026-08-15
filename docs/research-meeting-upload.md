@@ -139,11 +139,11 @@ model MeetingFile {
 | `pg-boss`                                     | Очередь в Postgres, нет Redis                                                                           | Меньше фич, нет ивентов/прогресса                         |
 | Внутрипроцессный `p-queue`/`@nestjs/schedule` | Ноль зависимостей                                                                                       | Нет персистентности и ретраев — теряем задачи при падении |
 
-**Решение: BullMQ 6 + официальный `@nestjs/bullmq` 11.** Redis-контейнер в docker-compose, `REDIS_URL` в env. BullMQ сам чинит «зависшие» задачи (stalled jobs) и даёт повторы с `attempts`/backoff — критично для длинной транскрипции.
+**Решение: BullMQ 6 + официальный `@nestjs/bullmq` 11.** Redis-контейнер в docker-compose, `REDIS_URL` в env. BullMQ сам чинит «зависшие» задачи (stalled jobs) и даёт повторы с `attempts`/backoff — пригодится при будущем добавлении тяжёлых задач (транскрипция).
 
 ### 3.2 Архитектура воркера: отдельный процесс
 
-Тяжёлые операции (ffmpeg, LibreOffice, транскрипция) — CPU/IO-bound. Держать их в event-loop API-процесса неоптимально даже при запуске субапроцессов: конкурируют за CPU с обработкой запросов.
+Обработка файлов (ffmpeg, poppler) — CPU/IO-bound. Держать их в event-loop API-процесса неоптимально даже при запуске субапроцессов: конкурируют за CPU с обработкой запросов.
 
 **Решение: отдельный воркер-процесс.** Второй entrypoint NestJS (`apps/api/src/worker/main.ts`), который бустрапит `WorkerModule` (общие `StorageService`, Prisma, конфиг) и регистрирует `@Processor('file-processing')`. В docker-compose добавляется сервис `api-worker` из того же образа (`npm run start:worker`), зависит от `redis` и `minio`.
 
@@ -156,12 +156,13 @@ async function bootstrap() {
 }
 ```
 
-- Воркер: `WorkerHost`/`@Process` с `concurrency: 1–2` (транскрипция тяжёлая — не перегружать CPU), BullMQ сам распределяет задачи.
+- Воркер: `WorkerHost`/`@Process` с `concurrency: 1–2`, BullMQ сам распределяет задачи. Задачи лёгкие (без транскрипции/LibreOffice), поэтому CPU-нагрузка минимальна.
 - Для фазы 2 (tracer bullet) допустим вариант «воркер в том же процессе API» (`onModuleInit` + `@Processor`), но раздельный процесс — правильная целевая архитектура, реализуется сразу без переделки.
 
 ### 3.3 Задачи и статусы
 
-- `file-processing` — одна задача на файл, payload: `{ meetingFileId }`. Внутри поэтапно: метаданные → превью → транскрипция (для медиа).
+- `file-processing` — одна задача на файл, payload: `{ meetingFileId }`. Внутри поэтапно: метаданные → превью.
+- **Вне скоупа фазы 2** (упрощение): транскрипция аудио/видео и превью Office-документов (LibreOffice) — отложены в отдельную фичу; воркеру не нужны whisper.cpp и LibreOffice.
 - Статусы: `PROCESSING → READY` (успех) / `PROCESSING → FAILED` (сбой с `errorMessage`). Файл со статусом `FAILED` остаётся в списке (PRD).
 - Отдельная задача не нужна: удаление файла должно отменять/игнорировать обработку — воркер перед каждым шагом перечитывает запись и прерывается, если запись удалена.
 
@@ -182,53 +183,44 @@ Frontend не может положить `Authorization` в `<a href>` — ск
 
 ---
 
-## 5. Фоновая обработка: инструменты
+## 5. Фоновая обработка: инструменты (упрощённый скоуп)
+
+**Упрощение фазы 2:** транскрипция (whisper.cpp) и конверсия/превью Office-документов (LibreOffice) вынесены из скоупа. Воркеру нужны только ffprobe, pdf-lib, ffmpeg и pdf-to-img (pdfjs).
 
 ### 5.1 Метаданные
 
-| Тип файла                  | Инструмент                                  | Что извлекаем                                                                  |
-| -------------------------- | ------------------------------------------- | ------------------------------------------------------------------------------ |
-| mp3/wav/m4a/mp4/webm       | **ffprobe** (CLI из ffmpeg)                 | Длительность, кодек, битрейт, sample rate, каналы; для видео — разрешение, fps |
-| pdf                        | **pdf-lib** (JS, без нативных зависимостей) | Количество страниц                                                             |
-| doc/docx/xls/xlsx/ppt/pptx | LibreOffice → PDF → `pdfinfo` (poppler)     | Количество страниц (переиспользуем конверсию из превью)                        |
-| txt                        | —                                           | Размер/строки достаточно                                                       |
+| Тип файла                  | Инструмент                                  | Что извлекаем                                          |
+| -------------------------- | ------------------------------------------- | ------------------------------------------------------ |
+| mp3/wav/m4a/mp4/webm       | **ffprobe** (CLI из ffmpeg)                 | Длительность (и при желании кодек/битрейт/sample rate) |
+| pdf                        | **pdf-lib** (JS, без нативных зависимостей) | Количество страниц                                     |
+| doc/docx/xls/xlsx/ppt/pptx | —                                           | Без метаданных (конверсия LibreOffice вне скоупа)      |
+| txt                        | —                                           | Размер/строки достаточно                               |
 
-Рекомендация: ffprobe запускать субапроцессом (`ffprobe -v quiet -print_format json -show_format -show_streams`). В Docker использовать системные бинарники (`ffmpeg`, `poppler-utils`, `libreoffice` из apt/apk) вместо npm-обёрток с загрузкой бинарей.
+Рекомендация: ffprobe запускать субапроцессом (`ffprobe -v quiet -print_format json -show_format`). Для разработки на Windows и в Docker используются npm-бинарники (`ffmpeg-static`, `ffprobe-static`); системные бинарники можно подключить через `FFMPEG_BIN`/`FFPROBE_BIN`.
 
 ### 5.2 Превью/миниатюры
 
-| Тип                        | Инструмент                                                                    | Результат           |
-| -------------------------- | ----------------------------------------------------------------------------- | ------------------- |
-| видео (mp4/webm)           | **ffmpeg**: кадр на ~10% длительности (`-ss <t> -frames:v 1 -vf scale=w:ih`)  | PNG/JPEG            |
-| аудио (mp3/wav/m4a)        | ffmpeg: встроенная обложка (`-an -c:v copy`) или волновая форма (`showwaves`) | PNG                 |
-| pdf                        | **poppler-utils** `pdftoppm -f 1 -l 1 -r 72 -png`                             | PNG первой страницы |
-| doc/docx/xls/xlsx/ppt/pptx | **LibreOffice headless** `soffice --headless --convert-to pdf` → `pdftoppm`   | PNG первой страницы |
-| txt                        | Превью-изображение не генерируем (в UI — иконка/текст)                        | —                   |
+| Тип                        | Инструмент                                                                   | Результат           |
+| -------------------------- | ---------------------------------------------------------------------------- | ------------------- |
+| видео (mp4/webm)           | **ffmpeg**: кадр на ~10% длительности (`-ss <t> -frames:v 1 -vf scale=w:ih`) | PNG/JPEG            |
+| аудио (mp3/wav/m4a)        | — (вне скоупа)                                                               | —                   |
+| pdf                        | **pdf-to-img** (pdfjs-dist, рендер первой страницы при `scale: 1.5`)         | PNG первой страницы |
+| doc/docx/xls/xlsx/ppt/pptx | — (вне скоупа, LibreOffice)                                                  | —                   |
+| txt                        | Превью-изображение не генерируем (в UI — иконка/текст)                       | —                   |
 
 - `previewObjectKey` пишем в S3 (префикс `previews/` рядом с объектом) и сохраняем ссылку в БД.
-- Пути в Dockerfile API: установить `ffmpeg`, `poppler-utils`, `libreoffice-writer`/`-calc`/`-impress` (для конверсии офисных форматов) — тогда воркер-контейнер умеет всё. Для разработки на Windows — `@ffmpeg-installer/ffmpeg` + `ffprobe-static` как dev-утилиты.
+- Превью PDF делаем через **pdfjs-dist** (npm, без системных зависимостей) вместо `pdftoppm`/poppler-utils: одинаково работает на Windows и в Linux-контейнере. Трейдофф: pdf.js рендерит документ в памяти (на больших PDF возможен рост RAM воркера) и требует обновлений по CVE. ffmpeg — из `ffmpeg-static` либо системного пакета (`FFMPEG_BIN`).
 
-### 5.3 Транскрипция аудио/видео
+### 5.3 Транскрипция аудио/видео (отложено)
 
-Self-hosted варианты (облачные API OpenAI/Google/Azure — вне духа «своей инфраструктуры», требуют ключи и плату):
-
-| Вариант                              | Плюсы                                                                                                                         | Минусы                             |
-| ------------------------------------ | ----------------------------------------------------------------------------------------------------------------------------- | ---------------------------------- |
-| **whisper.cpp** (GGML-модели)        | Быстро на CPU, один бинарник, легко в Docker, `ggml-large-v3-turbo` — хорошее качество RU, опции `--output-txt/--output-json` | Модель надо скачать (~500 МБ–3 ГБ) |
-| faster-whisper (Python, CTranslate2) | Максимальная скорость/точность, удобный сервер                                                                                | Нужен Python-рантайм в воркере     |
-| Vosk                                 | Очень лёгкий, офлайн                                                                                                          | Качество заметно ниже Whisper      |
-
-**Решение: whisper.cpp** субапроцессом из воркера. Пайплайн: ffmpeg → 16 кГц моно WAV → `whisper-cli -m ggml-large-v3-turbo.bin --output-txt --output-json`. Результат (`.txt`/`.json`) загружаем в S3 как `{key}.transcript.txt`, `transcriptObjectKey` пишем в БД. Отображение транскрипта в UI — вне скоупа (PRD), но хранение и ссылка готовы. Язык — автодетект (RU поддержан). Модель хранить в volume воркера, чтобы не качать при каждом старте.
-
-Альтернатива при желании меньшего труда на деплой: `nodejs-whisper` (npm, обёртка whisper.cpp) — но для прода лучше субапроцесс системного бинарника.
+Вне скоупа фазы 2. Когда понадобится: whisper.cpp субапроцессом из воркера; пайплайн ffmpeg → 16 кГц моно WAV → `whisper-cli -m ggml-large-v3-turbo.bin --output-txt --output-json`; результат в S3 как `{key}.transcript.txt`, `transcriptObjectKey` в БД. Модель в volume воркера.
 
 ### 5.4 Порядок шагов в задаче
 
 1. Прочитать запись `MeetingFile`, проверить актуальность (не удалена).
-2. Метаданные (ffprobe/pdf-lib/… ) → `metadata`, запись в БД.
-3. Превью (по типу) → S3 → `previewObjectKey`.
-4. Транскрипция для mp3/wav/m4a/mp4/webm → S3 → `transcriptObjectKey`.
-5. `status = READY`; при любой ошибке `status = FAILED` + `errorMessage` (проверять retry-политику: повторять шаги 2–4 с backoff, но не «съедать» failed-статус бесконечными ретраями — ограничить `attempts`).
+2. Метаданные (ffprobe для медиа / pdf-lib для pdf) → `metadata`, запись в БД.
+3. Превью (видео — ffmpeg кадр, pdf — pdf-to-img/pdfjs) → S3 → `previewObjectKey`.
+4. `status = READY`; при любой ошибке `status = FAILED` + `errorMessage` (проверять retry-политику: повторять шаги 2–3 с backoff, но не «съедать» failed-статус бесконечными ретраями — ограничить `attempts`).
 
 ---
 
@@ -276,9 +268,8 @@ MAX_FILE_SIZE_BYTES=52428800
 
 ### 7.3 Новые зависимости
 
-- API: `@aws-sdk/client-s3`, `@aws-sdk/s3-request-presigner` (на будущее), `@nestjs/bullmq`, `bullmq`, `file-type`, `pdf-lib`, `@types/multer` (dev). `multer` уже идёт с `@nestjs/platform-express`.
-- Воркер: `ffprobe`/ffmpeg, poppler-utils, LibreOffice (системные пакеты образа).
-- Транскрипция: бинарник whisper.cpp + модель в volume.
+- API: `@aws-sdk/client-s3`, `@aws-sdk/s3-request-presigner` (на будущее), `@nestjs/bullmq`, `bullmq`, `file-type`, `pdf-lib`, `pdf-to-img`, `ffmpeg-static`, `ffprobe-static`, `@types/multer` (dev). `multer` уже идёт с `@nestjs/platform-express`.
+- Воркер: системные бинарники не обязательны — ffmpeg/ffprobe из npm (или `FFMPEG_BIN`/`FFPROBE_BIN`), PDF через pdfjs-dist. LibreOffice и whisper.cpp **не нужны** (вне скоупа фазы 2).
 
 ---
 
@@ -303,16 +294,16 @@ MAX_FILE_SIZE_BYTES=52428800
 | Статусы        | `PROCESSING → READY                                                                                   | FAILED`, файл с `FAILED` остаётся в списке |
 | Очередь        | BullMQ 6 + `@nestjs/bullmq` 11 на Redis                                                               |
 | Воркер         | Отдельный процесс (`worker/main.ts`) + сервис `api-worker` в compose, concurrency 1–2                 |
-| Метаданные     | ffprobe (медиа), pdf-lib (pdf), LibreOffice+pdfinfo (office)                                          |
-| Превью         | ffmpeg (медиа), pdftoppm (pdf), LibreOffice→pdftoppm (office)                                         |
-| Транскрипция   | whisper.cpp субапроцессом, 16 кГц WAV через ffmpeg, результат в S3                                    |
+| Метаданные     | ffprobe (медиа — длительность), pdf-lib (pdf — страницы); остальное без метаданных                    |
+| Превью         | ffmpeg (видео — кадр), pdf-to-img/pdfjs (pdf — первая страница); аудио/office/txt без превью          |
+| Транскрипция   | **Вне скоупа фазы 2** (whisper.cpp отложен)                                                           |
 | Скачивание     | Стриминг `GetObjectCommand` через API (`Content-Disposition` с `filename*=UTF-8''`)                   |
 | Frontend       | `/meetings/[id]`, upload/delete/download через `/api/*` с Bearer-токеном, скачивание через fetch→blob |
 | Отклонения     | 404 для несуществующей/чужой встречи; 400/413 с понятным текстом для формата/размера                  |
 
 ## 10. Открытые вопросы / на заметку
 
-- Деплой моделей Whisper и бинарей (ffmpeg/LibreOffice/poppler) в образ воркера — размер образа вырастет; рассмотреть отдельный образ воркера.
+- Транскрипция (whisper.cpp) и превью/метаданные Office-документов (LibreOffice) — отдельная фича после фазы 2; схема БД уже имеет `transcriptObjectKey`.
 - Presigned URL для скачивания — будущая оптимизация, если API станет узким местом по трафику.
-- Прогресс транскрипции/обработки в UI (сколько готово) — не в скоупе, но BullMQ progress оставляет возможность.
+- Прогресс обработки в UI (сколько готово) — не в скоупе, но BullMQ progress оставляет возможность.
 - Лимит суммарного объёма на пользователя — вне скоупа PRD, но схема (`userId` на `MeetingFile`) уже позволяет ввести его позже.

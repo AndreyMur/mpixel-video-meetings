@@ -11,6 +11,7 @@ import { extname, basename } from 'node:path';
 import { randomUUID } from 'node:crypto';
 import { PrismaService } from '../../prisma/prisma.service';
 import { StorageService } from '../../storage/storage.service';
+import { ProcessingService } from '../../processing/processing.service';
 import { verifyFileType } from '../file-detector';
 import { EXTENSION_MIME } from '../file-mime';
 import { ALLOWED_EXTENSIONS } from '../files.constants';
@@ -21,6 +22,7 @@ export class UploadFileHandler implements ICommandHandler<UploadFileCommand> {
   constructor(
     private readonly prisma: PrismaService,
     private readonly storage: StorageService,
+    private readonly processing: ProcessingService,
   ) {}
 
   async execute(command: UploadFileCommand): Promise<MeetingFile> {
@@ -87,6 +89,20 @@ export class UploadFileHandler implements ICommandHandler<UploadFileCommand> {
           .delete({ where: { id: fileId } })
           .catch(() => undefined);
         throw new InternalServerErrorException('Не удалось сохранить файл');
+      }
+
+      try {
+        await this.processing.enqueue(fileId);
+      } catch {
+        file.status = 'FAILED';
+        file.errorMessage = 'Не удалось поставить файл в очередь обработки';
+        await this.prisma.meetingFile.update({
+          where: { id: fileId },
+          data: {
+            status: 'FAILED',
+            errorMessage: 'Не удалось поставить файл в очередь обработки',
+          },
+        });
       }
 
       return file;
