@@ -1,4 +1,4 @@
-import { parseError } from '@/lib/auth';
+import { ApiError, parseError, parseErrorPayload } from '@/lib/auth';
 
 export type FileStatus = 'UPLOADED' | 'PROCESSING' | 'READY' | 'FAILED';
 
@@ -69,25 +69,51 @@ export async function getMeetingFiles(
   return (await res.json()) as MeetingFile[];
 }
 
-export async function uploadMeetingFile(
+export interface UploadProgress {
+  loaded: number;
+  total: number;
+}
+
+export function uploadMeetingFile(
   meetingId: string,
   token: string,
   file: File,
+  onProgress?: (progress: UploadProgress) => void,
 ): Promise<MeetingFile> {
   const formData = new FormData();
   formData.append('file', file);
 
-  const res = await fetch(`/api/meetings/${meetingId}/files`, {
-    method: 'POST',
-    headers: { Authorization: `Bearer ${token}` },
-    body: formData,
+  return new Promise<MeetingFile>((resolve, reject) => {
+    const xhr = new XMLHttpRequest();
+    xhr.open('POST', `/api/meetings/${meetingId}/files`);
+    xhr.setRequestHeader('Authorization', `Bearer ${token}`);
+
+    xhr.upload.addEventListener('progress', (event) => {
+      if (event.lengthComputable) {
+        onProgress?.({ loaded: event.loaded, total: event.total });
+      }
+    });
+
+    xhr.addEventListener('load', () => {
+      if (xhr.status >= 200 && xhr.status < 300) {
+        try {
+          resolve(JSON.parse(xhr.responseText) as MeetingFile);
+        } catch {
+          reject(new ApiError(xhr.status, 'Некорректный ответ сервера'));
+        }
+        return;
+      }
+      reject(parseErrorPayload(xhr.status, xhr.responseText));
+    });
+    xhr.addEventListener('error', () => {
+      reject(new Error('Не удалось загрузить файл'));
+    });
+    xhr.addEventListener('abort', () => {
+      reject(new Error('Загрузка прервана'));
+    });
+
+    xhr.send(formData);
   });
-
-  if (!res.ok) {
-    throw await parseError(res);
-  }
-
-  return (await res.json()) as MeetingFile;
 }
 
 export async function deleteMeetingFile(

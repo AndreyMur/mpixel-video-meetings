@@ -69,9 +69,14 @@ export class ApiError extends Error {
 }
 
 export async function parseError(res: Response): Promise<ApiError> {
+  const rawBody = await res.text().catch(() => '');
+  return parseErrorPayload(res.status, rawBody);
+}
+
+export function parseErrorPayload(status: number, rawBody: string): ApiError {
   let body: ApiErrorBody | undefined;
   try {
-    body = (await res.json()) as ApiErrorBody;
+    body = JSON.parse(rawBody) as ApiErrorBody;
   } catch {
     // fall back to generic message below
   }
@@ -81,7 +86,7 @@ export async function parseError(res: Response): Promise<ApiError> {
     : body?.message;
   const details = Array.isArray(body?.message) ? body.message : undefined;
 
-  return new ApiError(res.status, message ?? 'Something went wrong', details);
+  return new ApiError(status, message ?? 'Something went wrong', details);
 }
 
 export async function register(

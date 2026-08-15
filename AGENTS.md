@@ -26,6 +26,7 @@ Root package.json defines `workspaces: ["apps/*"]`.
 - `npm run build` — build all workspaces
 - `npm run lint` — lint all workspaces
 - `npm run format` / `npm run format:check` — Prettier over the whole repo
+- `npm test -w @mpixel/web` — unit tests (vitest + Testing Library) for the web app
 
 App-specific scripts are run with `npm run <script> -w @mpixel/api` or `-w @mpixel/web` (e.g. `npm run dev -w @mpixel/api`).
 
