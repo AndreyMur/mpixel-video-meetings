@@ -41,6 +41,7 @@ import {
 import {
   deleteMeetingFile,
   downloadMeetingFile,
+  getFileExtension,
   getMeetingFiles,
   type FileStatus,
   type MeetingFile,
@@ -75,7 +76,7 @@ function formatSize(bytes: number): string {
 }
 
 function getFileKind(name: string): string {
-  const ext = name.split('.').pop()?.toLowerCase() ?? '';
+  const ext = getFileExtension(name);
   if (['mp3', 'wav', 'm4a'].includes(ext)) {
     return 'Аудио';
   }
@@ -171,12 +172,25 @@ export default function MeetingDetailPage() {
   const params = useParams<{ id: string }>();
   const meetingId = params.id;
 
+  const [activeMeetingId, setActiveMeetingId] = useState<string | undefined>(
+    meetingId,
+  );
   const [meeting, setMeeting] = useState<Meeting | null>(null);
   const [files, setFiles] = useState<MeetingFile[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isNotFound, setIsNotFound] = useState(false);
   const [pageError, setPageError] = useState<string | null>(null);
   const [email, setEmail] = useState<string | null>(null);
+
+  if (activeMeetingId !== meetingId) {
+    setActiveMeetingId(meetingId);
+    setMeeting(null);
+    setFiles([]);
+    setIsLoading(true);
+    setIsNotFound(false);
+    setPageError(null);
+    setEmail(null);
+  }
 
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [isUploading, setIsUploading] = useState(false);
@@ -256,6 +270,7 @@ export default function MeetingDetailPage() {
   ) => {
     try {
       await action();
+      setPageError(null);
     } catch (err) {
       if (err instanceof ApiError && err.status === 401) {
         clearAccessToken();
@@ -279,7 +294,10 @@ export default function MeetingDetailPage() {
         setFiles((prev) => [created, ...prev]);
         setSelectedFile(null);
       },
-      (message) => setUploadError(message),
+      (message) => {
+        setSelectedFile(null);
+        setUploadError(message);
+      },
     );
     setIsUploading(false);
   };
@@ -303,7 +321,7 @@ export default function MeetingDetailPage() {
 
   const handleDelete = async (file: MeetingFile) => {
     const token = getAccessToken();
-    if (!token || !meetingId) {
+    if (!token || !meetingId || deletingFileId === file.id) {
       return;
     }
     setDeletingFileId(file.id);
@@ -331,7 +349,7 @@ export default function MeetingDetailPage() {
         link.href = url;
         link.download = file.name;
         link.click();
-        URL.revokeObjectURL(url);
+        setTimeout(() => URL.revokeObjectURL(url), 1000);
       },
       (message) => setPageError(message),
     );
@@ -619,6 +637,12 @@ export default function MeetingDetailPage() {
                                           </Button>
                                           <Button
                                             variant="danger"
+                                            isDisabled={
+                                              deletingFileId === file.id
+                                            }
+                                            isPending={
+                                              deletingFileId === file.id
+                                            }
                                             onPress={() =>
                                               void handleDelete(file)
                                             }

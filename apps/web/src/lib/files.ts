@@ -33,7 +33,7 @@ export const ALLOWED_EXTENSIONS = [
 
 export type AllowedExtension = (typeof ALLOWED_EXTENSIONS)[number];
 
-function getFileExtension(name: string): string {
+export function getFileExtension(name: string): string {
   return name.includes('.') ? (name.split('.').pop()?.toLowerCase() ?? '') : '';
 }
 
