@@ -268,4 +268,78 @@ describe('ProfilePage', () => {
     expect(await screen.findByText('Пароли не совпадают')).toBeInTheDocument();
     expect(profileMocks.changePassword).not.toHaveBeenCalled();
   });
+
+  it('uploads a new avatar and re-fetches it', async () => {
+    profileMocks.uploadAvatar.mockResolvedValue({
+      ...user,
+      avatarUrl: '/users/me/avatar/new',
+    });
+    const userEventInstance = userEvent.setup();
+    const { container } = render(<ProfilePage />);
+
+    await screen.findByText('Alice');
+
+    const file = new File(['image'], 'avatar.png', { type: 'image/png' });
+    const input = container.querySelector('input[type="file"]');
+    expect(input).not.toBeNull();
+    await userEventInstance.upload(input as HTMLInputElement, file);
+
+    await waitFor(() => {
+      expect(profileMocks.uploadAvatar).toHaveBeenCalledWith(
+        'token-1',
+        file,
+        expect.any(Function),
+      );
+    });
+    expect(profileMocks.fetchAvatarSrc).toHaveBeenCalledWith('token-1');
+  });
+
+  it('shows the upload error when the avatar upload fails', async () => {
+    profileMocks.uploadAvatar.mockRejectedValue(
+      new ApiError(400, 'Неподдерживаемый формат изображения'),
+    );
+    const userEventInstance = userEvent.setup();
+    const { container } = render(<ProfilePage />);
+
+    await screen.findByText('Alice');
+
+    const file = new File(['image'], 'avatar.png', { type: 'image/png' });
+    const input = container.querySelector('input[type="file"]');
+    await userEventInstance.upload(input as HTMLInputElement, file);
+
+    expect(
+      await screen.findByText('Неподдерживаемый формат изображения'),
+    ).toBeInTheDocument();
+  });
+
+  it('deletes the avatar after confirming the dialog', async () => {
+    const userEventInstance = userEvent.setup();
+    render(<ProfilePage />);
+
+    await screen.findByAltText('Аватар пользователя');
+
+    await userEventInstance.click(
+      screen.getByRole('button', { name: 'Удалить' }),
+    );
+
+    const dialogConfirm = await screen.findByRole('button', {
+      name: 'Удалить',
+    });
+    await userEventInstance.click(dialogConfirm);
+
+    await waitFor(() => {
+      expect(profileMocks.deleteAvatar).toHaveBeenCalledWith('token-1');
+    });
+  });
+
+  it('keeps the page functional when the avatar fetch fails', async () => {
+    profileMocks.fetchAvatarSrc.mockRejectedValue(new Error('network'));
+    render(<ProfilePage />);
+
+    expect(await screen.findByText('Alice')).toBeInTheDocument();
+    expect(screen.queryByRole('alert')).not.toBeInTheDocument();
+    expect(
+      screen.queryByAltText('Аватар пользователя'),
+    ).not.toBeInTheDocument();
+  });
 });

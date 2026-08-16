@@ -8,7 +8,7 @@ import {
 } from '@gravity-ui/icons';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { Button, Card, Skeleton } from '@heroui/react';
 import {
   ApiError,
@@ -27,6 +27,32 @@ export default function ProfilePage() {
   const [avatarSrc, setAvatarSrc] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [pageError, setPageError] = useState<string | null>(null);
+  const avatarUrlRef = useRef<string | null>(null);
+
+  const releaseAvatarUrl = useCallback((url: string | null) => {
+    if (url) {
+      URL.revokeObjectURL(url);
+    }
+  }, []);
+
+  const setAvatarWithUrl = useCallback(
+    (src: string | null) => {
+      if (src === avatarUrlRef.current) {
+        return;
+      }
+      releaseAvatarUrl(avatarUrlRef.current);
+      avatarUrlRef.current = src;
+      setAvatarSrc(src);
+    },
+    [releaseAvatarUrl],
+  );
+
+  useEffect(() => {
+    return () => {
+      releaseAvatarUrl(avatarUrlRef.current);
+      avatarUrlRef.current = null;
+    };
+  }, [releaseAvatarUrl]);
 
   useEffect(() => {
     const user = getSessionUser();
@@ -41,13 +67,12 @@ export default function ProfilePage() {
     }
 
     let cancelled = false;
-    Promise.all([getProfile(accessToken), fetchAvatarSrc(accessToken)])
-      .then(([profileData, src]) => {
+    getProfile(accessToken)
+      .then((profileData) => {
         if (cancelled) {
           return;
         }
         setProfile(profileData);
-        setAvatarSrc(src);
         setPageError(null);
       })
       .catch((err) => {
@@ -69,10 +94,22 @@ export default function ProfilePage() {
         }
       });
 
+    fetchAvatarSrc(accessToken)
+      .then((src) => {
+        if (!cancelled) {
+          setAvatarWithUrl(src);
+        }
+      })
+      .catch(() => {
+        if (!cancelled) {
+          setAvatarWithUrl(null);
+        }
+      });
+
     return () => {
       cancelled = true;
     };
-  }, [router]);
+  }, [router, setAvatarWithUrl]);
 
   const token = getAccessToken();
   const email = profile?.email ?? null;
@@ -89,19 +126,9 @@ export default function ProfilePage() {
     }
     try {
       const src = await fetchAvatarSrc(token);
-      setAvatarSrc((prev) => {
-        if (prev && prev !== src) {
-          URL.revokeObjectURL(prev);
-        }
-        return src;
-      });
+      setAvatarWithUrl(src);
     } catch {
-      setAvatarSrc((prev) => {
-        if (prev) {
-          URL.revokeObjectURL(prev);
-        }
-        return null;
-      });
+      setAvatarWithUrl(null);
     }
   };
 
