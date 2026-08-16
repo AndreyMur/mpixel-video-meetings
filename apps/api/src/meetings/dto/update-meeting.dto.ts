@@ -7,17 +7,19 @@ import {
   IsString,
 } from 'class-validator';
 
-export class CreateMeetingDto {
+export class UpdateMeetingDto {
+  @IsOptional()
   @IsString()
   @IsNotEmpty()
-  title: string;
+  title?: string;
 
-  @IsString()
   @IsOptional()
+  @IsString()
   description?: string;
 
+  @IsOptional()
   @IsDateString()
-  date: string;
+  date?: string;
 
   @IsOptional()
   @IsArray()

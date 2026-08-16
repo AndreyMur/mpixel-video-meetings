@@ -34,6 +34,7 @@ interface MeetingPayload {
   title: string;
   date: string;
   participants: string[];
+  description?: string;
 }
 
 interface MeetingResponse extends MeetingPayload {
@@ -68,6 +69,7 @@ describe('Meetings (e2e)', () => {
       const { token } = await registerUser(app);
       const body: MeetingPayload = {
         title: 'Sprint planning',
+        description: 'Quarterly goals',
         date: meetingDate,
         participants: ['alice@example.com', 'bob@example.com'],
       };
@@ -80,6 +82,7 @@ describe('Meetings (e2e)', () => {
 
       expect(response.body).toMatchObject({
         title: body.title,
+        description: body.description,
         participants: body.participants,
       });
       expect(response.body).toHaveProperty('id');
@@ -96,6 +99,46 @@ describe('Meetings (e2e)', () => {
         .set(auth(token))
         .send({ date: meetingDate, participants: [] })
         .expect(400);
+    });
+
+    it('returns 400 when the date is missing', async () => {
+      const { token } = await registerUser(app);
+
+      await request(app.getHttpServer())
+        .post('/meetings')
+        .set(auth(token))
+        .send({ title: 'No date', participants: [] })
+        .expect(400);
+    });
+
+    it('returns 400 when a participant email is invalid', async () => {
+      const { token } = await registerUser(app);
+
+      await request(app.getHttpServer())
+        .post('/meetings')
+        .set(auth(token))
+        .send({
+          title: 'Bad email',
+          date: meetingDate,
+          participants: ['not-an-email'],
+        })
+        .expect(400);
+    });
+
+    it('creates a meeting without participants and description', async () => {
+      const { token } = await registerUser(app);
+
+      const response = await request(app.getHttpServer())
+        .post('/meetings')
+        .set(auth(token))
+        .send({ title: 'Solo', date: meetingDate })
+        .expect(201);
+
+      expect(response.body).toMatchObject({
+        title: 'Solo',
+        participants: [],
+        description: null,
+      });
     });
 
     it('returns 401 without a token', async () => {
@@ -215,6 +258,258 @@ describe('Meetings (e2e)', () => {
       await request(app.getHttpServer())
         .get('/meetings/00000000-0000-0000-0000-000000000000')
         .expect(401);
+    });
+  });
+
+  describe('PATCH /meetings/:id', () => {
+    async function createOwnedMeeting(token: string): Promise<string> {
+      const created = await request(app.getHttpServer())
+        .post('/meetings')
+        .set(auth(token))
+        .send({ title: 'To update', date: meetingDate, participants: [] })
+        .expect(201);
+      return (created.body as MeetingResponse).id;
+    }
+
+    it('updates the own meeting fields', async () => {
+      const user = await registerUser(app);
+      const meetingId = await createOwnedMeeting(user.token);
+
+      const response = await request(app.getHttpServer())
+        .patch(`/meetings/${meetingId}`)
+        .set(auth(user.token))
+        .send({
+          title: 'Updated title',
+          description: 'Updated description',
+          date: '2026-09-03T10:00:00.000Z',
+          participants: ['carol@example.com'],
+        })
+        .expect(200);
+
+      expect(response.body).toMatchObject({
+        id: meetingId,
+        title: 'Updated title',
+        description: 'Updated description',
+        participants: ['carol@example.com'],
+      });
+      expect(
+        new Date((response.body as MeetingResponse).date).toISOString(),
+      ).toBe('2026-09-03T10:00:00.000Z');
+    });
+
+    it('updates a single provided field', async () => {
+      const user = await registerUser(app);
+      const meetingId = await createOwnedMeeting(user.token);
+
+      const response = await request(app.getHttpServer())
+        .patch(`/meetings/${meetingId}`)
+        .set(auth(user.token))
+        .send({ title: 'Renamed' })
+        .expect(200);
+
+      expect(response.body).toMatchObject({
+        id: meetingId,
+        title: 'Renamed',
+      });
+    });
+
+    it('ignores null values for non-nullable fields', async () => {
+      const user = await registerUser(app);
+      const meetingId = await createOwnedMeeting(user.token);
+
+      const response = await request(app.getHttpServer())
+        .patch(`/meetings/${meetingId}`)
+        .set(auth(user.token))
+        .send({ title: null, date: null, participants: null })
+        .expect(200);
+
+      expect(response.body).toMatchObject({
+        id: meetingId,
+        title: 'To update',
+      });
+      expect(
+        new Date((response.body as MeetingResponse).date).toISOString(),
+      ).toBe(meetingDate);
+    });
+
+    it('clears description with an explicit null', async () => {
+      const user = await registerUser(app);
+      const meetingId = await createOwnedMeeting(user.token);
+
+      await request(app.getHttpServer())
+        .patch(`/meetings/${meetingId}`)
+        .set(auth(user.token))
+        .send({ description: 'Temporary' })
+        .expect(200);
+
+      const cleared = await request(app.getHttpServer())
+        .patch(`/meetings/${meetingId}`)
+        .set(auth(user.token))
+        .send({ description: null })
+        .expect(200);
+
+      expect((cleared.body as MeetingResponse).description).toBeNull();
+    });
+
+    it('returns 404 when the meeting does not belong to the user', async () => {
+      const owner = await registerUser(app);
+      const observer = await registerUser(app);
+      const meetingId = await createOwnedMeeting(owner.token);
+
+      await request(app.getHttpServer())
+        .patch(`/meetings/${meetingId}`)
+        .set(auth(observer.token))
+        .send({ title: 'Hijack' })
+        .expect(404);
+    });
+
+    it('returns 400 for an invalid email in participants', async () => {
+      const user = await registerUser(app);
+      const meetingId = await createOwnedMeeting(user.token);
+
+      await request(app.getHttpServer())
+        .patch(`/meetings/${meetingId}`)
+        .set(auth(user.token))
+        .send({ participants: ['bad-email'] })
+        .expect(400);
+    });
+
+    it('returns 401 without a token', async () => {
+      await request(app.getHttpServer())
+        .patch('/meetings/00000000-0000-0000-0000-000000000000')
+        .send({ title: 'X' })
+        .expect(401);
+    });
+  });
+
+  describe('DELETE /meetings/:id', () => {
+    it('deletes the own meeting without files', async () => {
+      const user = await registerUser(app);
+      const created = await request(app.getHttpServer())
+        .post('/meetings')
+        .set(auth(user.token))
+        .send({ title: 'To delete', date: meetingDate, participants: [] })
+        .expect(201);
+      const meetingId = (created.body as MeetingResponse).id;
+
+      await request(app.getHttpServer())
+        .delete(`/meetings/${meetingId}`)
+        .set(auth(user.token))
+        .expect(204);
+
+      await request(app.getHttpServer())
+        .get(`/meetings/${meetingId}`)
+        .set(auth(user.token))
+        .expect(404);
+    });
+
+    it('returns 409 and keeps the meeting when it has files', async () => {
+      const user = await registerUser(app);
+      const created = await request(app.getHttpServer())
+        .post('/meetings')
+        .set(auth(user.token))
+        .send({ title: 'With files', date: meetingDate, participants: [] })
+        .expect(201);
+      const meetingId = (created.body as MeetingResponse).id;
+
+      await request(app.getHttpServer())
+        .post(`/meetings/${meetingId}/files`)
+        .set(auth(user.token))
+        .attach('file', Buffer.from('%PDF-1.4 test content'), {
+          filename: 'notes.pdf',
+          contentType: 'application/pdf',
+        })
+        .expect(201);
+
+      const response = await request(app.getHttpServer())
+        .delete(`/meetings/${meetingId}`)
+        .set(auth(user.token))
+        .expect(409);
+
+      expect((response.body as { message: string }).message).toContain('files');
+
+      const stillThere = await request(app.getHttpServer())
+        .get(`/meetings/${meetingId}`)
+        .set(auth(user.token))
+        .expect(200);
+      expect((stillThere.body as MeetingResponse).title).toBe('With files');
+    });
+
+    it('returns 404 for a foreign or nonexistent meeting', async () => {
+      const owner = await registerUser(app);
+      const observer = await registerUser(app);
+      const created = await request(app.getHttpServer())
+        .post('/meetings')
+        .set(auth(owner.token))
+        .send({ title: 'Private', date: meetingDate, participants: [] })
+        .expect(201);
+      const meetingId = (created.body as MeetingResponse).id;
+
+      await request(app.getHttpServer())
+        .delete(`/meetings/${meetingId}`)
+        .set(auth(observer.token))
+        .expect(404);
+
+      await request(app.getHttpServer())
+        .delete('/meetings/00000000-0000-0000-0000-000000000000')
+        .set(auth(observer.token))
+        .expect(404);
+    });
+
+    it('returns 401 without a token', async () => {
+      await request(app.getHttpServer())
+        .delete('/meetings/00000000-0000-0000-0000-000000000000')
+        .expect(401);
+    });
+  });
+
+  describe('Full CRUD cycle', () => {
+    it('create → update → delete for a single user', async () => {
+      const user = await registerUser(app);
+
+      const created = await request(app.getHttpServer())
+        .post('/meetings')
+        .set(auth(user.token))
+        .send({
+          title: 'Cycle',
+          description: 'Before',
+          date: meetingDate,
+          participants: [],
+        })
+        .expect(201);
+      const meetingId = (created.body as MeetingResponse).id;
+
+      const updated = await request(app.getHttpServer())
+        .patch(`/meetings/${meetingId}`)
+        .set(auth(user.token))
+        .send({ title: 'Cycle updated', description: 'After' })
+        .expect(200);
+      expect(updated.body).toMatchObject({
+        id: meetingId,
+        title: 'Cycle updated',
+        description: 'After',
+      });
+
+      const list = await request(app.getHttpServer())
+        .get('/meetings')
+        .set(auth(user.token))
+        .expect(200);
+      expect((list.body as MeetingResponse[]).map((m) => m.id)).toContain(
+        meetingId,
+      );
+
+      await request(app.getHttpServer())
+        .delete(`/meetings/${meetingId}`)
+        .set(auth(user.token))
+        .expect(204);
+
+      const after = await request(app.getHttpServer())
+        .get('/meetings')
+        .set(auth(user.token))
+        .expect(200);
+      expect((after.body as MeetingResponse[]).map((m) => m.id)).not.toContain(
+        meetingId,
+      );
     });
   });
 });
