@@ -118,7 +118,7 @@ export function AvatarField({
 
   return (
     <Card className="w-full" variant="secondary">
-      <Card.Header className="items-center gap-4">
+      <Card.Header className="flex-col items-center gap-4 text-center">
         <Avatar size="lg" className="size-20 text-2xl">
           {avatarSrc ? (
             <Avatar.Image alt="Аватар пользователя" src={avatarSrc} />
@@ -127,7 +127,7 @@ export function AvatarField({
             <Person className="size-8" />
           </Avatar.Fallback>
         </Avatar>
-        <div className="flex min-w-0 flex-col gap-1">
+        <div className="flex min-w-0 flex-col items-center gap-1">
           <Card.Title className="truncate text-lg">{displayName}</Card.Title>
           <Card.Description className="truncate">
             {profile.email}
@@ -144,7 +144,7 @@ export function AvatarField({
           onChange={handleInputChange}
         />
 
-        <div className="flex flex-wrap items-center gap-2">
+        <div className="flex flex-wrap items-center justify-center gap-2">
           <Button
             isPending={isUploading}
             isDisabled={isUploading || isDeleting}
@@ -230,7 +230,7 @@ export function AvatarField({
         {uploadError ? (
           <p
             role="alert"
-            className="flex items-center gap-2 text-sm text-danger"
+            className="flex items-center justify-center gap-2 text-center text-sm text-danger"
           >
             <TriangleExclamation className="size-4 shrink-0" />
             {uploadError}
