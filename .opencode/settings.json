@@ -1,0 +1,23 @@
+{
+  "enabledMcpjsonServer": ["playwright"],
+  "hooks": {
+    // "PostTooUse": [
+    //     {
+    //         "matcher": "Write|Edit",
+    //         "hooks": [
+
+    //         ]
+    //     }
+    // ]
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node .opencode/hooks/stop.js"
+          }
+        ]
+      }
+    ]
+  }
+}
