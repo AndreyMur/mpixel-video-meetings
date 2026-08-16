@@ -1,6 +1,7 @@
 import { NotFoundException } from '@nestjs/common';
 import { IQueryHandler, QueryHandler } from '@nestjs/cqrs';
 import { PrismaService } from '../../prisma/prisma.service';
+import { AVATAR_EXTENSION_MIME } from '../avatar.constants';
 import { GetAvatarQuery } from './get-avatar.query';
 
 export interface AvatarResult {
@@ -24,10 +25,9 @@ export class GetAvatarHandler implements IQueryHandler<GetAvatarQuery> {
     }
 
     const extension = user.avatarObjectKey.split('.').pop() ?? 'png';
-    const mimeType =
-      extension === 'jpg' || extension === 'jpeg'
-        ? 'image/jpeg'
-        : `image/${extension}`;
-    return { objectKey: user.avatarObjectKey, mimeType };
+    return {
+      objectKey: user.avatarObjectKey,
+      mimeType: AVATAR_EXTENSION_MIME[extension] ?? 'application/octet-stream',
+    };
   }
 }

@@ -97,6 +97,19 @@ describe('UploadAvatarHandler', () => {
     expect(result.avatarUrl).toBe('/users/me/avatar');
   });
 
+  it('deletes the previous avatar object on re-upload', async () => {
+    prisma.user.findUnique.mockResolvedValue(
+      makeUser({ avatarObjectKey: 'avatars/u1/old.png' }),
+    );
+    prisma.user.update.mockResolvedValue(
+      makeUser({ avatarObjectKey: 'avatars/u1/new.png' }),
+    );
+
+    await handler.execute(new UploadAvatarCommand('u1', makeFile()));
+
+    expect(storage.deleteObject).toHaveBeenCalledWith('avatars/u1/old.png');
+  });
+
   it('rejects a file with an unsupported extension', async () => {
     prisma.user.findUnique.mockResolvedValue(makeUser());
     const file = makeFile();

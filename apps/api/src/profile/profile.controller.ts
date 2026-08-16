@@ -1,3 +1,4 @@
+import type { GetObjectCommandOutput } from '@aws-sdk/client-s3';
 import {
   Body,
   Controller,
@@ -5,6 +6,7 @@ import {
   Get,
   HttpCode,
   HttpStatus,
+  NotFoundException,
   Patch,
   Post,
   Res,
@@ -83,7 +85,12 @@ export class ProfileController {
     const avatar = await this.queryBus.execute<GetAvatarQuery, AvatarResult>(
       new GetAvatarQuery(user.sub),
     );
-    const object = await this.storage.getObject(avatar.objectKey);
+    let object: GetObjectCommandOutput;
+    try {
+      object = await this.storage.getObject(avatar.objectKey);
+    } catch {
+      throw new NotFoundException('Avatar not found');
+    }
     const body = object.Body as Readable;
 
     response.setHeader('Content-Type', avatar.mimeType);

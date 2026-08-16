@@ -22,10 +22,10 @@ export class DeleteAvatarHandler implements ICommandHandler<DeleteAvatarCommand>
       return;
     }
 
-    await this.storage.deleteObject(user.avatarObjectKey);
     await this.prisma.user.update({
       where: { id: command.userId },
       data: { avatarObjectKey: null },
     });
+    await this.storage.deleteObject(user.avatarObjectKey);
   }
 }

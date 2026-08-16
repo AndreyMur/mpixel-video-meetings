@@ -55,6 +55,7 @@ export class UploadAvatarHandler implements ICommandHandler<UploadAvatarCommand>
         throw new NotFoundException('User not found');
       }
 
+      const previousKey = user.avatarObjectKey;
       const objectKey = `avatars/${command.userId}/${randomUUID()}.${extension}`;
 
       let updated: User;
@@ -71,6 +72,10 @@ export class UploadAvatarHandler implements ICommandHandler<UploadAvatarCommand>
       } catch {
         await this.storage.deleteObject(objectKey).catch(() => undefined);
         throw new InternalServerErrorException('Не удалось сохранить аватар');
+      }
+
+      if (previousKey) {
+        await this.storage.deleteObject(previousKey).catch(() => undefined);
       }
 
       return toProfileResponse(updated);
