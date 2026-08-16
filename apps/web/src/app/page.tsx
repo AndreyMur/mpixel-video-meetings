@@ -185,6 +185,12 @@ export default function Home() {
         </div>
         <div className="flex items-center gap-3">
           <span className="hidden text-sm text-muted sm:block">{email}</span>
+          <Link href="/profile">
+            <Button variant="secondary" size="sm">
+              <Person className="size-4" />
+              Профиль
+            </Button>
+          </Link>
           <Button variant="tertiary" size="sm" onPress={handleLogout}>
             <ArrowRightFromSquare className="size-4" />
             Выйти
