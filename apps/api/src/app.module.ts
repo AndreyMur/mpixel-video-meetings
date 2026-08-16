@@ -7,6 +7,7 @@ import { FilesModule } from './files/files.module';
 import { MeetingsModule } from './meetings/meeting.module';
 import { PrismaModule } from './prisma/prisma.module';
 import { ProcessingModule } from './processing/processing.module';
+import { ProfileModule } from './profile/profile.module';
 import { StorageModule } from './storage/storage.module';
 import { UsersModule } from './users/users.module';
 
@@ -20,6 +21,7 @@ import { UsersModule } from './users/users.module';
     MeetingsModule,
     ProcessingModule,
     FilesModule,
+    ProfileModule,
   ],
   controllers: [AppController],
   providers: [AppService],
