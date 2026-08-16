@@ -5,17 +5,26 @@ import {
   HttpStatus,
   PayloadTooLargeException,
 } from '@nestjs/common';
-import { Response } from 'express';
+import { Request, Response } from 'express';
 
 @Catch(PayloadTooLargeException)
 export class PayloadTooLargeFilter implements ExceptionFilter {
   catch(_exception: PayloadTooLargeException, host: ArgumentsHost): void {
-    const response = host.switchToHttp().getResponse<Response>();
-    const maxSizeBytes = Number(process.env.MAX_FILE_SIZE_BYTES ?? 52428800);
+    const ctx = host.switchToHttp();
+    const response = ctx.getResponse<Response>();
+    const request = ctx.getRequest<Request>();
+    const isAvatar = request.path.includes('/users/me/avatar');
+    const maxSizeBytes = Number(
+      isAvatar
+        ? (process.env.MAX_AVATAR_SIZE_BYTES ?? 5242880)
+        : (process.env.MAX_FILE_SIZE_BYTES ?? 52428800),
+    );
     const maxSizeMb = Math.floor(maxSizeBytes / (1024 * 1024));
     response.status(HttpStatus.PAYLOAD_TOO_LARGE).json({
       statusCode: HttpStatus.PAYLOAD_TOO_LARGE,
-      message: `Файл превышает максимальный размер ${maxSizeMb} МБ`,
+      message: isAvatar
+        ? `Аватар превышает максимальный размер ${maxSizeMb} МБ`
+        : `Файл превышает максимальный размер ${maxSizeMb} МБ`,
     });
   }
 }
