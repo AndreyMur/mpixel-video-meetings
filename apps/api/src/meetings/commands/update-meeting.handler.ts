@@ -20,12 +20,14 @@ export class UpdateMeetingHandler implements ICommandHandler<UpdateMeetingComman
       throw new NotFoundException('Meeting not found');
     }
 
+    const { title, description, date, participants } = command.dto;
     const updated = await this.prisma.meeting.update({
-      where: { id: command.meetingId },
+      where: { id: meeting.id },
       data: {
-        title: command.dto.title,
-        date: command.dto.date ? new Date(command.dto.date) : undefined,
-        participants: command.dto.participants,
+        ...(title != null && { title }),
+        ...(description !== undefined && { description }),
+        ...(date != null && { date: new Date(date) }),
+        ...(participants != null && { participants }),
       },
     });
     if (meetingChanged(meeting, updated)) {
@@ -38,6 +40,7 @@ export class UpdateMeetingHandler implements ICommandHandler<UpdateMeetingComman
 function meetingChanged(before: Meeting, after: Meeting): boolean {
   return (
     before.title !== after.title ||
+    before.description !== after.description ||
     before.date.getTime() !== after.date.getTime() ||
     before.participants.length !== after.participants.length ||
     before.participants.some(

@@ -1,14 +1,26 @@
-import { IsArray, IsDateString, IsNotEmpty, IsString } from 'class-validator';
+import {
+  IsArray,
+  IsDateString,
+  IsEmail,
+  IsNotEmpty,
+  IsOptional,
+  IsString,
+} from 'class-validator';
 
 export class CreateMeetingDto {
   @IsString()
   @IsNotEmpty()
   title: string;
 
+  @IsString()
+  @IsOptional()
+  description?: string;
+
   @IsDateString()
   date: string;
 
+  @IsOptional()
   @IsArray()
-  @IsString({ each: true })
-  participants: string[];
+  @IsEmail({}, { each: true })
+  participants?: string[];
 }

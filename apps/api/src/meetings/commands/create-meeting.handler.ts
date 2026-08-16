@@ -15,8 +15,9 @@ export class CreateMeetingHandler implements ICommandHandler<CreateMeetingComman
     const meeting = await this.prisma.meeting.create({
       data: {
         title: command.dto.title,
+        description: command.dto.description,
         date: new Date(command.dto.date),
-        participants: command.dto.participants,
+        participants: command.dto.participants ?? [],
         userId: command.userId,
       },
     });

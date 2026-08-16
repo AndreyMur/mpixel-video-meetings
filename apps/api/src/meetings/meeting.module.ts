@@ -4,6 +4,7 @@ import { AuthModule } from '../auth/auth.module';
 import { EmailModule } from '../email/email.module';
 import { MeetingController } from './meeting.controller';
 import { CreateMeetingHandler } from './commands/create-meeting.handler';
+import { DeleteMeetingHandler } from './commands/delete-meeting.handler';
 import { UpdateMeetingHandler } from './commands/update-meeting.handler';
 import { MeetingInvitationService } from './meeting-invitation.service';
 import { GetMeetingHandler } from './queries/get-meeting.handler';
@@ -14,6 +15,7 @@ import { GetMeetingsHandler } from './queries/get-meetings.handler';
   controllers: [MeetingController],
   providers: [
     CreateMeetingHandler,
+    DeleteMeetingHandler,
     UpdateMeetingHandler,
     GetMeetingHandler,
     GetMeetingsHandler,

@@ -1,7 +1,10 @@
 import {
   Body,
   Controller,
+  Delete,
   Get,
+  HttpCode,
+  HttpStatus,
   Param,
   Patch,
   Post,
@@ -13,6 +16,7 @@ import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import type { CurrentUserPayload } from '../auth/decorators/current-user.decorator';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { CreateMeetingCommand } from './commands/create-meeting.command';
+import { DeleteMeetingCommand } from './commands/delete-meeting.command';
 import { UpdateMeetingCommand } from './commands/update-meeting.command';
 import { CreateMeetingDto } from './dto/create-meeting.dto';
 import { UpdateMeetingDto } from './dto/update-meeting.dto';
@@ -55,5 +59,14 @@ export class MeetingController {
     @Body() dto: UpdateMeetingDto,
   ): Promise<Meeting> {
     return this.commandBus.execute(new UpdateMeetingCommand(user.sub, id, dto));
+  }
+
+  @Delete(':id')
+  @HttpCode(HttpStatus.NO_CONTENT)
+  remove(
+    @CurrentUser() user: CurrentUserPayload,
+    @Param('id') id: string,
+  ): Promise<void> {
+    return this.commandBus.execute(new DeleteMeetingCommand(user.sub, id));
   }
 }

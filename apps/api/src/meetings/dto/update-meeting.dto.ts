@@ -1,23 +1,28 @@
 import {
   IsArray,
   IsDateString,
+  IsEmail,
   IsNotEmpty,
+  IsOptional,
   IsString,
-  ValidateIf,
 } from 'class-validator';
 
 export class UpdateMeetingDto {
-  @ValidateIf((_object, value) => value !== undefined)
+  @IsOptional()
   @IsString()
   @IsNotEmpty()
   title?: string;
 
-  @ValidateIf((_object, value) => value !== undefined)
+  @IsOptional()
+  @IsString()
+  description?: string;
+
+  @IsOptional()
   @IsDateString()
   date?: string;
 
-  @ValidateIf((_object, value) => value !== undefined)
+  @IsOptional()
   @IsArray()
-  @IsString({ each: true })
+  @IsEmail({}, { each: true })
   participants?: string[];
 }

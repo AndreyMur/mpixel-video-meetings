@@ -9,9 +9,10 @@ import { UpdateMeetingHandler } from './update-meeting.handler';
 function makeMeeting(overrides: Partial<Meeting> = {}): Meeting {
   return {
     id: 'm1',
-    title: 'Старое название',
-    date: new Date('2026-09-01T10:00:00Z'),
-    participants: ['alice@example.com', 'bob@example.com'],
+    title: 'Sprint planning',
+    description: null,
+    date: new Date('2026-09-01T10:00:00.000Z'),
+    participants: ['alice@example.com'],
     userId: 'u1',
     createdAt: new Date(),
     updatedAt: new Date(),
@@ -20,9 +21,7 @@ function makeMeeting(overrides: Partial<Meeting> = {}): Meeting {
 }
 
 describe('UpdateMeetingHandler', () => {
-  let prisma: {
-    meeting: { findFirst: jest.Mock; update: jest.Mock };
-  };
+  let prisma: { meeting: { findFirst: jest.Mock; update: jest.Mock } };
   let emailService: { sendMeetingInvitation: jest.Mock };
   let handler: UpdateMeetingHandler;
 
@@ -37,63 +36,113 @@ describe('UpdateMeetingHandler', () => {
     );
   });
 
-  it('updates attributes and sends an updated invitation to each participant', async () => {
-    prisma.meeting.findFirst.mockResolvedValue(makeMeeting());
-    const updated = makeMeeting({
-      title: 'Новое название',
-      participants: ['alice@example.com', 'carol@example.com'],
-    });
-    prisma.meeting.update.mockResolvedValue(updated);
-
-    const result = await handler.execute(
-      new UpdateMeetingCommand('u1', 'm1', {
-        title: 'Новое название',
-        participants: ['alice@example.com', 'carol@example.com'],
-      }),
-    );
-
-    expect(prisma.meeting.update).toHaveBeenCalledWith({
-      where: { id: 'm1' },
-      data: {
-        title: 'Новое название',
-        date: undefined,
-        participants: ['alice@example.com', 'carol@example.com'],
-      },
-    });
-    expect(result.title).toBe('Новое название');
-    expect(emailService.sendMeetingInvitation).toHaveBeenCalledTimes(2);
-    expect(emailService.sendMeetingInvitation).toHaveBeenCalledWith(
-      'carol@example.com',
-      expect.objectContaining({ title: 'Новое название' }),
-    );
-    expect(emailService.sendMeetingInvitation).toHaveBeenCalledWith(
-      'alice@example.com',
-      expect.objectContaining({
-        participants: ['alice@example.com', 'carol@example.com'],
-      }),
-    );
-  });
-
-  it('converts a date string to a Date when updating', async () => {
-    prisma.meeting.findFirst.mockResolvedValue(makeMeeting());
+  it('updates all provided fields', async () => {
+    const meeting = makeMeeting();
+    prisma.meeting.findFirst.mockResolvedValue(meeting);
     prisma.meeting.update.mockResolvedValue(
-      makeMeeting({ date: new Date('2026-09-02T12:00:00Z') }),
+      makeMeeting({ title: 'New title', description: 'Desc' }),
     );
 
     await handler.execute(
       new UpdateMeetingCommand('u1', 'm1', {
-        date: '2026-09-02T12:00:00Z',
+        title: 'New title',
+        description: 'Desc',
+        date: '2026-09-02T10:00:00.000Z',
+        participants: ['bob@example.com'],
+      }),
+    );
+
+    expect(prisma.meeting.findFirst).toHaveBeenCalledWith({
+      where: { id: 'm1', userId: 'u1' },
+    });
+    expect(prisma.meeting.update).toHaveBeenCalledWith({
+      where: { id: 'm1' },
+      data: {
+        title: 'New title',
+        description: 'Desc',
+        date: new Date('2026-09-02T10:00:00.000Z'),
+        participants: ['bob@example.com'],
+      },
+    });
+  });
+
+  it('updates only fields present in the payload', async () => {
+    prisma.meeting.findFirst.mockResolvedValue(makeMeeting());
+    prisma.meeting.update.mockResolvedValue(
+      makeMeeting({ title: 'Only title' }),
+    );
+
+    await handler.execute(
+      new UpdateMeetingCommand('u1', 'm1', { title: 'Only title' }),
+    );
+
+    expect(prisma.meeting.update).toHaveBeenCalledWith({
+      where: { id: 'm1' },
+      data: { title: 'Only title' },
+    });
+  });
+
+  it('ignores null values for non-nullable fields', async () => {
+    prisma.meeting.findFirst.mockResolvedValue(makeMeeting());
+    prisma.meeting.update.mockResolvedValue(makeMeeting());
+
+    await handler.execute(
+      new UpdateMeetingCommand('u1', 'm1', {
+        title: null,
+        date: null,
+        participants: null,
       }),
     );
 
     expect(prisma.meeting.update).toHaveBeenCalledWith({
       where: { id: 'm1' },
-      data: {
-        title: undefined,
-        date: new Date('2026-09-02T12:00:00Z'),
-        participants: undefined,
-      },
+      data: {},
     });
+    expect(emailService.sendMeetingInvitation).not.toHaveBeenCalled();
+  });
+
+  it('clears description with an explicit null', async () => {
+    prisma.meeting.findFirst.mockResolvedValue(
+      makeMeeting({ description: 'Old desc' }),
+    );
+    prisma.meeting.update.mockResolvedValue(makeMeeting());
+
+    await handler.execute(
+      new UpdateMeetingCommand('u1', 'm1', { description: null }),
+    );
+
+    expect(prisma.meeting.update).toHaveBeenCalledWith({
+      where: { id: 'm1' },
+      data: { description: null },
+    });
+  });
+
+  it('sends an updated invitation to every participant when the meeting changed', async () => {
+    prisma.meeting.findFirst.mockResolvedValue(makeMeeting());
+    const updated = makeMeeting({
+      title: 'New title',
+      participants: ['alice@example.com', 'bob@example.com'],
+    });
+    prisma.meeting.update.mockResolvedValue(updated);
+
+    await handler.execute(
+      new UpdateMeetingCommand('u1', 'm1', {
+        title: 'New title',
+        participants: ['alice@example.com', 'bob@example.com'],
+      }),
+    );
+
+    expect(emailService.sendMeetingInvitation).toHaveBeenCalledTimes(2);
+    expect(emailService.sendMeetingInvitation).toHaveBeenCalledWith(
+      'bob@example.com',
+      expect.objectContaining({ title: 'New title' }),
+    );
+    expect(emailService.sendMeetingInvitation).toHaveBeenCalledWith(
+      'alice@example.com',
+      expect.objectContaining({
+        participants: ['alice@example.com', 'bob@example.com'],
+      }),
+    );
   });
 
   it('does not send invitations when nothing changed', async () => {
@@ -112,7 +161,7 @@ describe('UpdateMeetingHandler', () => {
 
     await expect(
       handler.execute(
-        new UpdateMeetingCommand('u1', 'm1', { title: 'Новое название' }),
+        new UpdateMeetingCommand('u1', 'm1', { title: 'New title' }),
       ),
     ).rejects.toBeInstanceOf(NotFoundException);
 
