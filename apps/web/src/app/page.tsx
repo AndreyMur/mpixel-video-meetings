@@ -1,16 +1,17 @@
 'use client';
 
 import Link from 'next/link';
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import {
   ArrowRightFromSquare,
   Calendar,
   Clock,
   Person,
+  TriangleExclamation,
   Video,
 } from '@gravity-ui/icons';
-import { Button, Card, Chip, Skeleton } from '@heroui/react';
+import { Avatar, Button, Card, Chip, Skeleton, Tooltip } from '@heroui/react';
 import {
   ApiError,
   clearAccessToken,
@@ -19,6 +20,7 @@ import {
   getSessionUser,
   type Meeting,
 } from '@/lib/auth';
+import { fetchAvatarSrc, getProfile, type UserProfile } from '@/lib/profile';
 
 function formatDate(date: string): string {
   return new Intl.DateTimeFormat('ru-RU', {
@@ -92,7 +94,35 @@ export default function Home() {
   const [meetings, setMeetings] = useState<Meeting[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [email, setEmail] = useState<string | null>(null);
+  const [profile, setProfile] = useState<UserProfile | null>(null);
+  const [avatarSrc, setAvatarSrc] = useState<string | null>(null);
+  const [profileError, setProfileError] = useState<string | null>(null);
+  const avatarUrlRef = useRef<string | null>(null);
+
+  const releaseAvatarUrl = useCallback((url: string | null) => {
+    if (url) {
+      URL.revokeObjectURL(url);
+    }
+  }, []);
+
+  const setAvatarWithUrl = useCallback(
+    (src: string | null) => {
+      if (src === avatarUrlRef.current) {
+        return;
+      }
+      releaseAvatarUrl(avatarUrlRef.current);
+      avatarUrlRef.current = src;
+      setAvatarSrc(src);
+    },
+    [releaseAvatarUrl],
+  );
+
+  useEffect(() => {
+    return () => {
+      releaseAvatarUrl(avatarUrlRef.current);
+      avatarUrlRef.current = null;
+    };
+  }, [releaseAvatarUrl]);
 
   useEffect(() => {
     const user = getSessionUser();
@@ -111,7 +141,6 @@ export default function Home() {
     getMeetings(token)
       .then((data) => {
         if (!cancelled) {
-          setEmail(user.email);
           setMeetings(data);
           setError(null);
         }
@@ -133,15 +162,95 @@ export default function Home() {
         }
       });
 
+    getProfile(token)
+      .then((data) => {
+        if (!cancelled) {
+          setProfile(data);
+          setProfileError(null);
+        }
+      })
+      .catch((err) => {
+        if (cancelled) {
+          return;
+        }
+        if (err instanceof ApiError && err.status === 401) {
+          clearAccessToken();
+          router.replace('/login');
+          return;
+        }
+        setProfileError(
+          err instanceof Error ? err.message : 'Something went wrong',
+        );
+      });
+
+    fetchAvatarSrc(token)
+      .then((src) => {
+        if (!cancelled) {
+          setAvatarWithUrl(src);
+        }
+      })
+      .catch(() => {
+        if (!cancelled) {
+          setAvatarWithUrl(null);
+        }
+      });
+
     return () => {
       cancelled = true;
     };
-  }, [router]);
+  }, [router, setAvatarWithUrl]);
 
   const handleLogout = () => {
     clearAccessToken();
     router.replace('/login');
   };
+
+  const displayName = profile?.name || profile?.email || null;
+
+  const headerUserArea = (
+    <div className="flex items-center gap-3">
+      <Link
+        href="/profile"
+        aria-label={displayName ? `Профиль: ${displayName}` : 'Профиль'}
+        className="flex min-h-11 items-center gap-2 rounded-full p-1 outline-none transition-opacity hover:opacity-80 focus-visible:ring-2 focus-visible:ring-accent"
+      >
+        <Avatar size="sm" className="size-9">
+          {avatarSrc ? (
+            <Avatar.Image alt="Аватар пользователя" src={avatarSrc} />
+          ) : null}
+          <Avatar.Fallback>
+            <Person className="size-4" />
+          </Avatar.Fallback>
+        </Avatar>
+        {displayName ? (
+          <span className="hidden max-w-40 truncate text-sm text-muted sm:block">
+            {displayName}
+          </span>
+        ) : null}
+      </Link>
+      {profileError ? (
+        <Tooltip>
+          <Button
+            variant="tertiary"
+            size="sm"
+            isIconOnly
+            aria-label={`Не удалось загрузить профиль: ${profileError}`}
+          >
+            <TriangleExclamation className="size-4 text-danger" />
+          </Button>
+          <Tooltip.Content>
+            <p className="max-w-xs">
+              Не удалось загрузить профиль: {profileError}
+            </p>
+          </Tooltip.Content>
+        </Tooltip>
+      ) : null}
+      <Button variant="tertiary" size="sm" onPress={handleLogout}>
+        <ArrowRightFromSquare className="size-4" />
+        Выйти
+      </Button>
+    </div>
+  );
 
   if (isLoading) {
     return (
@@ -183,25 +292,13 @@ export default function Home() {
             MPixel Meeting
           </span>
         </div>
-        <div className="flex items-center gap-3">
-          <span className="hidden text-sm text-muted sm:block">{email}</span>
-          <Link href="/profile">
-            <Button variant="secondary" size="sm">
-              <Person className="size-4" />
-              Профиль
-            </Button>
-          </Link>
-          <Button variant="tertiary" size="sm" onPress={handleLogout}>
-            <ArrowRightFromSquare className="size-4" />
-            Выйти
-          </Button>
-        </div>
+        {headerUserArea}
       </header>
 
       <div className="mx-auto flex w-full max-w-4xl flex-1 flex-col gap-10 px-4 py-8 sm:px-8">
         <section className="flex flex-col gap-2">
           <h1 className="text-2xl font-semibold tracking-tight">
-            Добро пожаловать{email ? `, ${email}` : ''}
+            Добро пожаловать{displayName ? `, ${displayName}` : ''}
           </h1>
           <p className="text-sm text-muted">
             Здесь вы найдёте все свои встречи MPixel.
