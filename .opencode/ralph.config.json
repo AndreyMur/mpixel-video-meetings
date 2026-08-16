@@ -1,0 +1,5 @@
+{
+  "milestone": "",
+  "branch": "feature/phase-5",
+  "prompt": "Возьми следующую открытую Issue из milestone '{milestone}' и реализуй его. Не создавай PR - просто закрой Issues через closes"
+}
