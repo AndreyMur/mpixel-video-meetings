@@ -217,4 +217,91 @@ describe('Meetings (e2e)', () => {
         .expect(401);
     });
   });
+
+  describe('PATCH /meetings/:id', () => {
+    it('updates attributes and participants with 200', async () => {
+      const user = await registerUser(app);
+      const created = await request(app.getHttpServer())
+        .post('/meetings')
+        .set(auth(user.token))
+        .send({
+          title: 'Old title',
+          date: meetingDate,
+          participants: ['alice@example.com'],
+        })
+        .expect(201);
+
+      const createdId = (created.body as MeetingResponse).id;
+
+      const response = await request(app.getHttpServer())
+        .patch(`/meetings/${createdId}`)
+        .set(auth(user.token))
+        .send({
+          title: 'New title',
+          date: '2026-09-02T10:00:00.000Z',
+          participants: ['alice@example.com', 'bob@example.com'],
+        })
+        .expect(200);
+
+      expect(response.body).toMatchObject({
+        id: createdId,
+        title: 'New title',
+        participants: ['alice@example.com', 'bob@example.com'],
+      });
+      expect(
+        new Date((response.body as MeetingResponse).date).toISOString(),
+      ).toBe('2026-09-02T10:00:00.000Z');
+    });
+
+    it('returns 404 when the meeting is not found', async () => {
+      const { token } = await registerUser(app);
+
+      await request(app.getHttpServer())
+        .patch('/meetings/00000000-0000-0000-0000-000000000000')
+        .set(auth(token))
+        .send({ title: 'New title' })
+        .expect(404);
+    });
+
+    it('returns 400 when a field is null', async () => {
+      const user = await registerUser(app);
+      const created = await request(app.getHttpServer())
+        .post('/meetings')
+        .set(auth(user.token))
+        .send({ title: 'Title', date: meetingDate, participants: [] })
+        .expect(201);
+
+      const createdId = (created.body as MeetingResponse).id;
+
+      await request(app.getHttpServer())
+        .patch(`/meetings/${createdId}`)
+        .set(auth(user.token))
+        .send({ title: null })
+        .expect(400);
+    });
+
+    it('returns 400 when the title is empty', async () => {
+      const user = await registerUser(app);
+      const created = await request(app.getHttpServer())
+        .post('/meetings')
+        .set(auth(user.token))
+        .send({ title: 'Title', date: meetingDate, participants: [] })
+        .expect(201);
+
+      const createdId = (created.body as MeetingResponse).id;
+
+      await request(app.getHttpServer())
+        .patch(`/meetings/${createdId}`)
+        .set(auth(user.token))
+        .send({ title: '' })
+        .expect(400);
+    });
+
+    it('returns 401 without a token', async () => {
+      await request(app.getHttpServer())
+        .patch('/meetings/00000000-0000-0000-0000-000000000000')
+        .send({ title: 'New title' })
+        .expect(401);
+    });
+  });
 });
