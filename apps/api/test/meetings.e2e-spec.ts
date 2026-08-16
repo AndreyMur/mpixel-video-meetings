@@ -351,6 +351,28 @@ describe('Meetings (e2e)', () => {
       expect((cleared.body as MeetingResponse).description).toBeNull();
     });
 
+    it('returns 400 when the title is empty', async () => {
+      const user = await registerUser(app);
+      const meetingId = await createOwnedMeeting(user.token);
+
+      await request(app.getHttpServer())
+        .patch(`/meetings/${meetingId}`)
+        .set(auth(user.token))
+        .send({ title: '' })
+        .expect(400);
+    });
+
+    it('returns 400 for an invalid email in participants', async () => {
+      const user = await registerUser(app);
+      const meetingId = await createOwnedMeeting(user.token);
+
+      await request(app.getHttpServer())
+        .patch(`/meetings/${meetingId}`)
+        .set(auth(user.token))
+        .send({ participants: ['bad-email'] })
+        .expect(400);
+    });
+
     it('returns 404 when the meeting does not belong to the user', async () => {
       const owner = await registerUser(app);
       const observer = await registerUser(app);
@@ -363,15 +385,14 @@ describe('Meetings (e2e)', () => {
         .expect(404);
     });
 
-    it('returns 400 for an invalid email in participants', async () => {
-      const user = await registerUser(app);
-      const meetingId = await createOwnedMeeting(user.token);
+    it('returns 404 when the meeting is not found', async () => {
+      const { token } = await registerUser(app);
 
       await request(app.getHttpServer())
-        .patch(`/meetings/${meetingId}`)
-        .set(auth(user.token))
-        .send({ participants: ['bad-email'] })
-        .expect(400);
+        .patch('/meetings/00000000-0000-0000-0000-000000000000')
+        .set(auth(token))
+        .send({ title: 'New title' })
+        .expect(404);
     });
 
     it('returns 401 without a token', async () => {

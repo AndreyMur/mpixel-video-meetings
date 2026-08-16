@@ -1,14 +1,18 @@
 import { CommandHandler, ICommandHandler } from '@nestjs/cqrs';
 import { Meeting } from '@prisma/client';
+import { MeetingInvitationService } from '../meeting-invitation.service';
 import { PrismaService } from '../../prisma/prisma.service';
 import { CreateMeetingCommand } from './create-meeting.command';
 
 @CommandHandler(CreateMeetingCommand)
 export class CreateMeetingHandler implements ICommandHandler<CreateMeetingCommand> {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly invitations: MeetingInvitationService,
+  ) {}
 
   async execute(command: CreateMeetingCommand): Promise<Meeting> {
-    return this.prisma.meeting.create({
+    const meeting = await this.prisma.meeting.create({
       data: {
         title: command.dto.title,
         description: command.dto.description,
@@ -17,5 +21,7 @@ export class CreateMeetingHandler implements ICommandHandler<CreateMeetingComman
         userId: command.userId,
       },
     });
+    await this.invitations.sendForMeeting(meeting);
+    return meeting;
   }
 }

@@ -2,11 +2,15 @@ import { NotFoundException } from '@nestjs/common';
 import { CommandHandler, ICommandHandler } from '@nestjs/cqrs';
 import { Meeting } from '@prisma/client';
 import { PrismaService } from '../../prisma/prisma.service';
+import { MeetingInvitationService } from '../meeting-invitation.service';
 import { UpdateMeetingCommand } from './update-meeting.command';
 
 @CommandHandler(UpdateMeetingCommand)
 export class UpdateMeetingHandler implements ICommandHandler<UpdateMeetingCommand> {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly invitations: MeetingInvitationService,
+  ) {}
 
   async execute(command: UpdateMeetingCommand): Promise<Meeting> {
     const meeting = await this.prisma.meeting.findFirst({
@@ -17,7 +21,7 @@ export class UpdateMeetingHandler implements ICommandHandler<UpdateMeetingComman
     }
 
     const { title, description, date, participants } = command.dto;
-    return this.prisma.meeting.update({
+    const updated = await this.prisma.meeting.update({
       where: { id: meeting.id },
       data: {
         ...(title != null && { title }),
@@ -26,5 +30,21 @@ export class UpdateMeetingHandler implements ICommandHandler<UpdateMeetingComman
         ...(participants != null && { participants }),
       },
     });
+    if (meetingChanged(meeting, updated)) {
+      await this.invitations.sendForMeeting(updated);
+    }
+    return updated;
   }
+}
+
+function meetingChanged(before: Meeting, after: Meeting): boolean {
+  return (
+    before.title !== after.title ||
+    before.description !== after.description ||
+    before.date.getTime() !== after.date.getTime() ||
+    before.participants.length !== after.participants.length ||
+    before.participants.some(
+      (participant, index) => participant !== after.participants[index],
+    )
+  );
 }
