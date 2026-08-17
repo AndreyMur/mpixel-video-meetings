@@ -1,5 +1,3 @@
-import { useSyncExternalStore } from 'react';
-
 export interface AuthResponse {
   accessToken: string;
 }
@@ -52,41 +50,6 @@ export function getSessionUser(): SessionUser | null {
   } catch {
     return null;
   }
-}
-
-function subscribeToAuthStore(onStoreChange: () => void): () => void {
-  if (typeof window === 'undefined') {
-    return () => {};
-  }
-  window.addEventListener('storage', onStoreChange);
-  return () => window.removeEventListener('storage', onStoreChange);
-}
-
-export function useAccessToken(): string | null {
-  return useSyncExternalStore(
-    subscribeToAuthStore,
-    () => getAccessToken(),
-    () => null,
-  );
-}
-
-let cachedSessionUser: SessionUser | null = null;
-
-export function useSessionUser(): SessionUser | null {
-  return useSyncExternalStore(
-    subscribeToAuthStore,
-    () => {
-      const next = getSessionUser();
-      if (
-        next?.sub !== cachedSessionUser?.sub ||
-        next?.email !== cachedSessionUser?.email
-      ) {
-        cachedSessionUser = next;
-      }
-      return cachedSessionUser;
-    },
-    () => null,
-  );
 }
 
 interface ApiErrorBody {

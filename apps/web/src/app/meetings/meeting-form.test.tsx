@@ -196,10 +196,26 @@ describe('MeetingForm (edit)', () => {
     ...createdMeeting,
     title: 'Старый синк',
     description: 'Описание встречи',
-    participants: ['a@example.com'],
+    participants: ['creator@example.com', 'a@example.com'],
   };
 
-  it('prefills fields from the meeting data', () => {
+  it('prefills fields from the meeting data, excluding the creator email', () => {
+    render(
+      <MeetingForm
+        token="token-1"
+        mode="edit"
+        meetingId="m1"
+        initial={meeting}
+        userEmail="creator@example.com"
+      />,
+    );
+
+    expect(screen.getByLabelText('Название')).toHaveValue('Старый синк');
+    expect(screen.getByLabelText('Описание')).toHaveValue('Описание встречи');
+    expect(screen.getByLabelText('Участники')).toHaveValue('a@example.com');
+  });
+
+  it('shows the full participant list when the creator email is not known', () => {
     render(
       <MeetingForm
         token="token-1"
@@ -209,9 +225,9 @@ describe('MeetingForm (edit)', () => {
       />,
     );
 
-    expect(screen.getByLabelText('Название')).toHaveValue('Старый синк');
-    expect(screen.getByLabelText('Описание')).toHaveValue('Описание встречи');
-    expect(screen.getByLabelText('Участники')).toHaveValue('a@example.com');
+    expect(screen.getByLabelText('Участники')).toHaveValue(
+      'creator@example.com, a@example.com',
+    );
   });
 
   it('updates the meeting via PATCH and navigates back', async () => {
@@ -222,6 +238,7 @@ describe('MeetingForm (edit)', () => {
         mode="edit"
         meetingId="m1"
         initial={meeting}
+        userEmail="creator@example.com"
       />,
     );
 
@@ -254,6 +271,7 @@ describe('MeetingForm (edit)', () => {
         mode="edit"
         meetingId="m1"
         initial={meeting}
+        userEmail="creator@example.com"
       />,
     );
 

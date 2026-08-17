@@ -36,7 +36,9 @@ export class MeetingController {
     @CurrentUser() user: CurrentUserPayload,
     @Body() dto: CreateMeetingDto,
   ): Promise<Meeting> {
-    return this.commandBus.execute(new CreateMeetingCommand(user.sub, dto));
+    return this.commandBus.execute(
+      new CreateMeetingCommand(user.sub, user.email, dto),
+    );
   }
 
   @Get()
@@ -58,7 +60,9 @@ export class MeetingController {
     @Param('id') id: string,
     @Body() dto: UpdateMeetingDto,
   ): Promise<Meeting> {
-    return this.commandBus.execute(new UpdateMeetingCommand(user.sub, id, dto));
+    return this.commandBus.execute(
+      new UpdateMeetingCommand(user.sub, id, user.email, dto),
+    );
   }
 
   @Delete(':id')

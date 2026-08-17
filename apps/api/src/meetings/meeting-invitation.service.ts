@@ -10,9 +10,13 @@ export class MeetingInvitationService {
 
   async sendForMeeting(
     meeting: Pick<Meeting, 'title' | 'date' | 'participants'>,
+    organizerEmail: string,
   ): Promise<void> {
+    const recipients = meeting.participants.filter(
+      (participant) => participant !== organizerEmail,
+    );
     const results = await Promise.allSettled(
-      meeting.participants.map((participant) =>
+      recipients.map((participant) =>
         this.emailService.sendMeetingInvitation(participant, {
           title: meeting.title,
           date: meeting.date,
@@ -23,7 +27,7 @@ export class MeetingInvitationService {
     results.forEach((result, index) => {
       if (result.status === 'rejected') {
         this.logger.error(
-          `Failed to send meeting invitation to ${meeting.participants[index]}: ${String(result.reason)}`,
+          `Failed to send meeting invitation to ${recipients[index]}: ${String(result.reason)}`,
         );
       }
     });

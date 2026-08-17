@@ -30,6 +30,7 @@ interface MeetingFormProps {
   mode: 'create' | 'edit';
   meetingId?: string;
   initial?: Meeting;
+  userEmail?: string;
 }
 
 export function MeetingForm({
@@ -37,6 +38,7 @@ export function MeetingForm({
   mode,
   meetingId,
   initial,
+  userEmail,
 }: MeetingFormProps) {
   const router = useRouter();
   const isEdit = mode === 'edit';
@@ -163,7 +165,10 @@ export function MeetingForm({
 
         <TextField
           name="participants"
-          defaultValue={initial?.participants.join(', ') ?? ''}
+          defaultValue={
+            initial?.participants.filter((p) => p !== userEmail).join(', ') ??
+            ''
+          }
           validate={validateParticipants}
         >
           <Label>Участники</Label>

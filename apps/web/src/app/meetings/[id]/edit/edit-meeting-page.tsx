@@ -169,6 +169,7 @@ export default function EditMeetingPage() {
             mode="edit"
             meetingId={meetingId}
             initial={meeting}
+            userEmail={email ?? undefined}
           />
         ) : null}
       </div>

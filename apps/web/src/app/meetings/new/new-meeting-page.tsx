@@ -3,21 +3,32 @@
 import { ArrowLeft, ArrowRightFromSquare, Video } from '@gravity-ui/icons';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { Button, Skeleton } from '@heroui/react';
-import { clearAccessToken, useAccessToken, useSessionUser } from '@/lib/auth';
+import { clearAccessToken, getAccessToken, getSessionUser } from '@/lib/auth';
 import { MeetingForm } from '../meeting-form';
 
 export default function NewMeetingPage() {
   const router = useRouter();
-  const user = useSessionUser();
-  const token = useAccessToken();
+  const [email, setEmail] = useState<string | null>(null);
+  const [token, setToken] = useState<string | null>(null);
 
   useEffect(() => {
-    if (!user || !token) {
+    const user = getSessionUser();
+    if (!user) {
       router.replace('/login');
+      return;
     }
-  }, [router, user, token]);
+    const accessToken = getAccessToken();
+    if (!accessToken) {
+      router.replace('/login');
+      return;
+    }
+    void Promise.resolve().then(() => {
+      setEmail(user.email);
+      setToken(accessToken);
+    });
+  }, [router]);
 
   const handleLogout = () => {
     clearAccessToken();
@@ -36,9 +47,7 @@ export default function NewMeetingPage() {
         </span>
       </Link>
       <div className="flex items-center gap-3">
-        <span className="hidden text-sm text-muted sm:block">
-          {user?.email}
-        </span>
+        <span className="hidden text-sm text-muted sm:block">{email}</span>
         <Button variant="tertiary" size="sm" onPress={handleLogout}>
           <ArrowRightFromSquare className="size-4" />
           Выйти
@@ -47,7 +56,7 @@ export default function NewMeetingPage() {
     </header>
   );
 
-  if (!user || !token) {
+  if (!token) {
     return (
       <main className="flex min-h-dvh flex-col bg-background">
         {header}
@@ -76,7 +85,11 @@ export default function NewMeetingPage() {
           </h1>
         </div>
 
-        <MeetingForm token={token} mode="create" />
+        <MeetingForm
+          token={token}
+          mode="create"
+          userEmail={email ?? undefined}
+        />
       </div>
     </main>
   );
