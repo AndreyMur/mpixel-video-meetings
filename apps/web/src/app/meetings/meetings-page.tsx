@@ -72,6 +72,9 @@ function MeetingCard({
           >
             {meeting.title}
           </Link>
+          {meeting.description ? (
+            <p className="truncate text-sm text-muted">{meeting.description}</p>
+          ) : null}
           <Card.Description className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs">
             <span className="inline-flex items-center gap-1">
               <Calendar aria-hidden="true" className="size-3.5" />

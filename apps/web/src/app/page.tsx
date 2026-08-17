@@ -4,13 +4,16 @@ import Link from 'next/link';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import {
+  ArrowRight,
   ArrowRightFromSquare,
   Calendar,
   Clock,
   Person,
+  Plus,
   TriangleExclamation,
   Video,
 } from '@gravity-ui/icons';
+import { buttonVariants } from '@heroui/styles';
 import { Avatar, Button, Card, Chip, Skeleton, Tooltip } from '@heroui/react';
 import {
   ApiError,
@@ -48,6 +51,9 @@ function MeetingCard({ meeting }: { meeting: Meeting }) {
           <Card.Title className="truncate text-base">
             {meeting.title}
           </Card.Title>
+          {meeting.description ? (
+            <p className="truncate text-sm text-muted">{meeting.description}</p>
+          ) : null}
           <Card.Description className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs">
             <span className="inline-flex items-center gap-1">
               <Calendar aria-hidden="true" className="size-3.5" />
@@ -296,13 +302,22 @@ export default function Home() {
       </header>
 
       <div className="mx-auto flex w-full max-w-4xl flex-1 flex-col gap-10 px-4 py-8 sm:px-8">
-        <section className="flex flex-col gap-2">
-          <h1 className="text-2xl font-semibold tracking-tight">
-            Добро пожаловать{displayName ? `, ${displayName}` : ''}
-          </h1>
-          <p className="text-sm text-muted">
-            Здесь вы найдёте все свои встречи MPixel.
-          </p>
+        <section className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+          <div className="flex flex-col gap-2">
+            <h1 className="text-2xl font-semibold tracking-tight">
+              Добро пожаловать{displayName ? `, ${displayName}` : ''}
+            </h1>
+            <p className="text-sm text-muted">
+              Здесь вы найдёте все свои встречи MPixel.
+            </p>
+          </div>
+          <Link
+            href="/meetings/new"
+            className={buttonVariants({ size: 'md', variant: 'primary' })}
+          >
+            <Plus className="size-4" />
+            Создать встречу
+          </Link>
         </section>
 
         {error ? (
@@ -338,11 +353,20 @@ export default function Home() {
         ) : null}
 
         <section className="flex flex-col gap-4">
-          <div className="flex items-center gap-2">
-            <Calendar className="size-5 text-accent" />
-            <h2 className="text-lg font-semibold tracking-tight">
-              {meetings.length > 0 ? 'Все встречи' : 'Встречи'}
-            </h2>
+          <div className="flex items-center justify-between gap-2">
+            <div className="flex items-center gap-2">
+              <Calendar className="size-5 text-accent" />
+              <h2 className="text-lg font-semibold tracking-tight">
+                {meetings.length > 0 ? 'Все встречи' : 'Встречи'}
+              </h2>
+            </div>
+            <Link
+              href="/meetings"
+              className="inline-flex items-center gap-1 text-sm text-muted hover:text-foreground"
+            >
+              Смотреть все
+              <ArrowRight className="size-4" />
+            </Link>
           </div>
 
           {meetings.length === 0 ? (

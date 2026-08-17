@@ -210,6 +210,27 @@ describe('Home', () => {
     expect(authMocks.clearAccessToken).toHaveBeenCalled();
   });
 
+  it('renders a link to create a meeting', async () => {
+    render(<Home />);
+
+    await screen.findByText('Alice');
+
+    expect(
+      screen.getByRole('link', { name: 'Создать встречу' }),
+    ).toHaveAttribute('href', '/meetings/new');
+  });
+
+  it('renders a link to the full meetings list', async () => {
+    render(<Home />);
+
+    await screen.findByText('Alice');
+
+    expect(screen.getByRole('link', { name: 'Смотреть все' })).toHaveAttribute(
+      'href',
+      '/meetings',
+    );
+  });
+
   it('renders meetings loaded from the API', async () => {
     authMocks.getMeetings.mockResolvedValue([meeting]);
     render(<Home />);
