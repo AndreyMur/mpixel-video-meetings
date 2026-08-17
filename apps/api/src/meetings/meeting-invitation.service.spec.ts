@@ -8,7 +8,7 @@ function makeMeeting(
   return {
     title: 'Встреча',
     date: new Date('2026-09-01T10:00:00Z'),
-    participants: ['alice@example.com', 'bob@example.com'],
+    participants: ['organizer@example.com', 'alice@example.com'],
     ...overrides,
   };
 }
@@ -26,32 +26,36 @@ describe('MeetingInvitationService', () => {
     );
   });
 
-  it('sends an invitation to every participant', async () => {
+  it('sends an invitation to every participant except the organizer', async () => {
     const meeting = makeMeeting();
 
-    await service.sendForMeeting(meeting);
+    await service.sendForMeeting(meeting, 'organizer@example.com');
 
-    expect(emailService.sendMeetingInvitation).toHaveBeenCalledTimes(2);
+    expect(emailService.sendMeetingInvitation).toHaveBeenCalledTimes(1);
     expect(emailService.sendMeetingInvitation).toHaveBeenCalledWith(
       'alice@example.com',
       {
         title: 'Встреча',
         date: meeting.date,
-        participants: ['alice@example.com', 'bob@example.com'],
-      },
-    );
-    expect(emailService.sendMeetingInvitation).toHaveBeenCalledWith(
-      'bob@example.com',
-      {
-        title: 'Встреча',
-        date: meeting.date,
-        participants: ['alice@example.com', 'bob@example.com'],
+        participants: ['organizer@example.com', 'alice@example.com'],
       },
     );
   });
 
+  it('does not send anything when there are no participants besides the organizer', async () => {
+    await service.sendForMeeting(
+      makeMeeting({ participants: ['organizer@example.com'] }),
+      'organizer@example.com',
+    );
+
+    expect(emailService.sendMeetingInvitation).not.toHaveBeenCalled();
+  });
+
   it('does not send anything when there are no participants', async () => {
-    await service.sendForMeeting(makeMeeting({ participants: [] }));
+    await service.sendForMeeting(
+      makeMeeting({ participants: [] }),
+      'organizer@example.com',
+    );
 
     expect(emailService.sendMeetingInvitation).not.toHaveBeenCalled();
   });
@@ -62,7 +66,16 @@ describe('MeetingInvitationService', () => {
     );
 
     await expect(
-      service.sendForMeeting(makeMeeting()),
+      service.sendForMeeting(
+        makeMeeting({
+          participants: [
+            'organizer@example.com',
+            'alice@example.com',
+            'bob@example.com',
+          ],
+        }),
+        'organizer@example.com',
+      ),
     ).resolves.toBeUndefined();
 
     expect(emailService.sendMeetingInvitation).toHaveBeenCalledTimes(2);

@@ -10,12 +10,14 @@ import {
   FileArrowDown,
   FileText,
   Paperclip,
+  Pencil,
   Person,
   TrashBin,
   TriangleExclamation,
   Video,
   Xmark,
 } from '@gravity-ui/icons';
+import { buttonVariants } from '@heroui/styles';
 import Link from 'next/link';
 import { useParams, useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
@@ -48,6 +50,7 @@ import {
   uploadMeetingFile,
   validateMeetingFile,
 } from '@/lib/files';
+import { deleteMeeting } from '@/lib/meetings';
 
 function formatDate(date: string): string {
   return new Intl.DateTimeFormat('ru-RU', {
@@ -200,6 +203,7 @@ export default function MeetingDetailPage() {
   const [downloadingFileId, setDownloadingFileId] = useState<string | null>(
     null,
   );
+  const [isDeleting, setIsDeleting] = useState(false);
 
   useEffect(() => {
     if (!meetingId) {
@@ -367,6 +371,22 @@ export default function MeetingDetailPage() {
     setDownloadingFileId(null);
   };
 
+  const handleDeleteMeeting = async () => {
+    const token = getAccessToken();
+    if (!token || !meetingId || isDeleting) {
+      return;
+    }
+    setIsDeleting(true);
+    await runAuthorized(
+      async () => {
+        await deleteMeeting(token, meetingId);
+        router.push('/meetings');
+      },
+      (message) => setPageError(message),
+    );
+    setIsDeleting(false);
+  };
+
   const header = (
     <header className="flex items-center justify-between gap-4 border-b border-border/60 px-4 py-4 sm:px-8">
       <Link
@@ -427,33 +447,104 @@ export default function MeetingDetailPage() {
       {header}
 
       <div className="mx-auto flex w-full max-w-4xl flex-1 flex-col gap-8 px-4 py-8 sm:px-8">
-        <div className="flex flex-col gap-2">
-          <Link
-            href="/"
-            className="inline-flex w-fit items-center gap-1 text-sm text-muted hover:text-foreground"
-          >
-            <ArrowLeft className="size-4" />К списку встреч
-          </Link>
-          <h1 className="text-2xl font-semibold tracking-tight">
-            {meeting?.title ?? 'Встреча'}
-          </h1>
+        <div className="flex items-start justify-between gap-4">
+          <div className="flex min-w-0 flex-col gap-2">
+            <Link
+              href="/"
+              className="inline-flex w-fit items-center gap-1 text-sm text-muted hover:text-foreground"
+            >
+              <ArrowLeft className="size-4" />К списку встреч
+            </Link>
+            <h1 className="text-2xl font-semibold tracking-tight">
+              {meeting?.title ?? 'Встреча'}
+            </h1>
+            {meeting?.description ? (
+              <p className="text-sm text-muted">{meeting.description}</p>
+            ) : null}
+            {meeting ? (
+              <p className="flex flex-wrap items-center gap-x-4 gap-y-1 text-sm text-muted">
+                <span className="inline-flex items-center gap-1">
+                  <Calendar aria-hidden="true" className="size-4" />
+                  {formatDate(meeting.date)}
+                </span>
+                <span className="inline-flex items-center gap-1">
+                  <Clock aria-hidden="true" className="size-4" />
+                  {formatTime(meeting.date)}
+                </span>
+                <span className="inline-flex items-center gap-1">
+                  <Person aria-hidden="true" className="size-4" />
+                  {meeting.participants.length === 1
+                    ? '1 участник'
+                    : `${meeting.participants.length} участников`}
+                </span>
+              </p>
+            ) : null}
+          </div>
           {meeting ? (
-            <p className="flex flex-wrap items-center gap-x-4 gap-y-1 text-sm text-muted">
-              <span className="inline-flex items-center gap-1">
-                <Calendar aria-hidden="true" className="size-4" />
-                {formatDate(meeting.date)}
-              </span>
-              <span className="inline-flex items-center gap-1">
-                <Clock aria-hidden="true" className="size-4" />
-                {formatTime(meeting.date)}
-              </span>
-              <span className="inline-flex items-center gap-1">
-                <Person aria-hidden="true" className="size-4" />
-                {meeting.participants.length === 1
-                  ? '1 участник'
-                  : `${meeting.participants.length} участников`}
-              </span>
-            </p>
+            <div className="flex shrink-0 items-center gap-1">
+              <Tooltip>
+                <Link
+                  href={`/meetings/${meeting.id}/edit`}
+                  aria-label={`Изменить ${meeting.title}`}
+                  className={`${buttonVariants({
+                    isIconOnly: true,
+                    size: 'sm',
+                    variant: 'tertiary',
+                  })} min-h-11 min-w-11`}
+                >
+                  <Pencil className="size-4" />
+                </Link>
+                <Tooltip.Content>Изменить</Tooltip.Content>
+              </Tooltip>
+              <AlertDialog>
+                <Button
+                  isIconOnly
+                  variant="danger-soft"
+                  size="sm"
+                  className="min-h-11 min-w-11"
+                  aria-label={`Удалить ${meeting.title}`}
+                  isDisabled={isDeleting}
+                >
+                  {isDeleting ? (
+                    <Spinner color="current" size="sm" />
+                  ) : (
+                    <TrashBin className="size-4" />
+                  )}
+                </Button>
+                <AlertDialog.Backdrop>
+                  <AlertDialog.Container>
+                    <AlertDialog.Dialog>
+                      <AlertDialog.Header>
+                        <AlertDialog.Icon />
+                        <AlertDialog.Heading>
+                          Удалить встречу?
+                        </AlertDialog.Heading>
+                      </AlertDialog.Header>
+                      <AlertDialog.Body>
+                        <p>
+                          Встреча «{meeting.title}» будет удалена без
+                          возможности восстановления.
+                        </p>
+                      </AlertDialog.Body>
+                      <AlertDialog.Footer>
+                        <Button variant="tertiary" slot="close">
+                          Отмена
+                        </Button>
+                        <Button
+                          variant="danger"
+                          slot="close"
+                          isDisabled={isDeleting}
+                          isPending={isDeleting}
+                          onPress={() => void handleDeleteMeeting()}
+                        >
+                          Удалить
+                        </Button>
+                      </AlertDialog.Footer>
+                    </AlertDialog.Dialog>
+                  </AlertDialog.Container>
+                </AlertDialog.Backdrop>
+              </AlertDialog>
+            </div>
           ) : null}
         </div>
 

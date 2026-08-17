@@ -5,12 +5,12 @@ import { MeetingInvitationService } from '../meeting-invitation.service';
 import { CreateMeetingCommand } from './create-meeting.command';
 import { CreateMeetingHandler } from './create-meeting.handler';
 
-function makeMeeting(id: string): Meeting {
+function makeMeeting(participants: string[]): Meeting {
   return {
-    id,
+    id: 'm1',
     title: 'Обсуждение дизайна',
     date: new Date('2026-09-01T10:00:00Z'),
-    participants: ['alice@example.com', 'bob@example.com'],
+    participants,
     userId: 'u1',
     createdAt: new Date(),
     updatedAt: new Date(),
@@ -33,18 +33,38 @@ describe('CreateMeetingHandler', () => {
     );
   });
 
-  it('creates the meeting and sends an invitation to each participant', async () => {
-    prisma.meeting.create.mockResolvedValue(makeMeeting('m1'));
+  it('stores the creator as a participant and invites only the others', async () => {
+    prisma.meeting.create.mockImplementation(
+      ({ data }: { data: { participants: string[] } }) =>
+        makeMeeting(data.participants),
+    );
 
     const result = await handler.execute(
-      new CreateMeetingCommand('u1', {
+      new CreateMeetingCommand('u1', 'organizer@example.com', {
         title: 'Обсуждение дизайна',
         date: '2026-09-01T10:00:00Z',
         participants: ['alice@example.com', 'bob@example.com'],
       }),
     );
 
-    expect(result.id).toBe('m1');
+    expect(prisma.meeting.create).toHaveBeenCalledWith({
+      data: {
+        title: 'Обсуждение дизайна',
+        description: undefined,
+        date: new Date('2026-09-01T10:00:00Z'),
+        participants: [
+          'organizer@example.com',
+          'alice@example.com',
+          'bob@example.com',
+        ],
+        userId: 'u1',
+      },
+    });
+    expect(result.participants).toEqual([
+      'organizer@example.com',
+      'alice@example.com',
+      'bob@example.com',
+    ]);
     expect(emailService.sendMeetingInvitation).toHaveBeenCalledTimes(2);
     expect(emailService.sendMeetingInvitation).toHaveBeenCalledWith(
       'alice@example.com',
@@ -53,19 +73,66 @@ describe('CreateMeetingHandler', () => {
     expect(emailService.sendMeetingInvitation).toHaveBeenCalledWith(
       'bob@example.com',
       expect.objectContaining({
-        participants: ['alice@example.com', 'bob@example.com'],
+        participants: [
+          'organizer@example.com',
+          'alice@example.com',
+          'bob@example.com',
+        ],
       }),
+    );
+    expect(emailService.sendMeetingInvitation).not.toHaveBeenCalledWith(
+      'organizer@example.com',
+      expect.anything(),
     );
   });
 
+  it('keeps at least the creator as a participant and sends no invitations', async () => {
+    prisma.meeting.create.mockImplementation(
+      ({ data }: { data: { participants: string[] } }) =>
+        makeMeeting(data.participants),
+    );
+
+    const result = await handler.execute(
+      new CreateMeetingCommand('u1', 'organizer@example.com', {
+        title: 'Обсуждение дизайна',
+        date: '2026-09-01T10:00:00Z',
+      }),
+    );
+
+    expect(result.participants).toEqual(['organizer@example.com']);
+    expect(emailService.sendMeetingInvitation).not.toHaveBeenCalled();
+  });
+
+  it('deduplicates the creator email when it is also listed as a participant', async () => {
+    prisma.meeting.create.mockImplementation(
+      ({ data }: { data: { participants: string[] } }) =>
+        makeMeeting(data.participants),
+    );
+
+    const result = await handler.execute(
+      new CreateMeetingCommand('u1', 'organizer@example.com', {
+        title: 'Обсуждение дизайна',
+        date: '2026-09-01T10:00:00Z',
+        participants: ['organizer@example.com', 'alice@example.com'],
+      }),
+    );
+
+    expect(result.participants).toEqual([
+      'organizer@example.com',
+      'alice@example.com',
+    ]);
+  });
+
   it('returns the meeting even when invitations fail to send', async () => {
-    prisma.meeting.create.mockResolvedValue(makeMeeting('m1'));
+    prisma.meeting.create.mockResolvedValue(
+      makeMeeting(['organizer@example.com', 'alice@example.com']),
+    );
     emailService.sendMeetingInvitation.mockRejectedValue(
       new Error('smtp down'),
     );
 
     const result = await handler.execute(
-      new CreateMeetingCommand('u1', {
+      new CreateMeetingCommand('u1', 'organizer@example.com', {
         title: 'Обсуждение дизайна',
         date: '2026-09-01T10:00:00Z',
         participants: ['alice@example.com'],
