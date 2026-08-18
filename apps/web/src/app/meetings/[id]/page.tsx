@@ -11,7 +11,6 @@ import {
   FileText,
   Paperclip,
   Pencil,
-  Person,
   TrashBin,
   TriangleExclamation,
   Video,
@@ -29,9 +28,11 @@ import {
   Skeleton,
   Spinner,
   Table,
+  Toast,
   Tooltip,
 } from '@heroui/react';
 import { FileUploadArea } from '@/components/file-upload-area';
+import { ParticipantsDropdown } from '@/components/participants-dropdown';
 import {
   ApiError,
   clearAccessToken,
@@ -184,6 +185,7 @@ export default function MeetingDetailPage() {
   const [isNotFound, setIsNotFound] = useState(false);
   const [pageError, setPageError] = useState<string | null>(null);
   const [email, setEmail] = useState<string | null>(null);
+  const [userSub, setUserSub] = useState<string | null>(null);
 
   if (activeMeetingId !== meetingId) {
     setActiveMeetingId(meetingId);
@@ -193,6 +195,7 @@ export default function MeetingDetailPage() {
     setIsNotFound(false);
     setPageError(null);
     setEmail(null);
+    setUserSub(null);
   }
 
   const [isUploading, setIsUploading] = useState(false);
@@ -230,6 +233,7 @@ export default function MeetingDetailPage() {
           return;
         }
         setEmail(user.email);
+        setUserSub(user.sub);
         setMeeting(meetingData);
         setFiles(filesData);
         setPageError(null);
@@ -471,12 +475,12 @@ export default function MeetingDetailPage() {
                   <Clock aria-hidden="true" className="size-4" />
                   {formatTime(meeting.date)}
                 </span>
-                <span className="inline-flex items-center gap-1">
-                  <Person aria-hidden="true" className="size-4" />
-                  {meeting.participants.length === 1
-                    ? '1 участник'
-                    : `${meeting.participants.length} участников`}
-                </span>
+                <ParticipantsDropdown
+                  meetingId={meeting.id}
+                  participants={meeting.participants}
+                  isOrganizer={meeting.userId === userSub}
+                  ownEmail={email ?? ''}
+                />
               </p>
             ) : null}
           </div>
@@ -711,6 +715,7 @@ export default function MeetingDetailPage() {
           )}
         </section>
       </div>
+      <Toast.Provider />
     </main>
   );
 }

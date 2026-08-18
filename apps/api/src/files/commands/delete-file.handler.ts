@@ -38,7 +38,11 @@ export class DeleteFileHandler implements ICommandHandler<DeleteFileCommand> {
       throw new NotFoundException('File not found');
     }
 
-    await this.storage.deleteObject(file.objectKey);
+    await Promise.all(
+      [file.objectKey, file.previewObjectKey, file.transcriptObjectKey]
+        .filter((key): key is string => Boolean(key))
+        .map((key) => this.storage.deleteObject(key).catch(() => undefined)),
+    );
     await this.prisma.meetingFile.delete({ where: { id: file.id } });
   }
 }

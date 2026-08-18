@@ -21,6 +21,7 @@
     "prepare": "husky"
   },
   "devDependencies": {
+    "@playwright/mcp": "^0.0.79",
     "concurrently": "^9.1.0",
     "husky": "^9.1.7",
     "lint-staged": "^16.4.0",
