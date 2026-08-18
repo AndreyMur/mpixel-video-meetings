@@ -2,6 +2,7 @@ export interface MeetingInvitationData {
   title: string;
   date: Date;
   participants: string[];
+  meetingUrl: string;
 }
 
 const dateFormatter = new Intl.DateTimeFormat('ru-RU', {
@@ -32,6 +33,9 @@ export function buildInvitationText(meeting: MeetingInvitationData): string {
     '',
     'Участники:',
     ...meeting.participants.map((participant) => `- ${participant}`),
+    '',
+    'Ссылка на встречу:',
+    meeting.meetingUrl,
   ];
   return lines.join('\n');
 }
@@ -39,6 +43,7 @@ export function buildInvitationText(meeting: MeetingInvitationData): string {
 export function buildInvitationHtml(meeting: MeetingInvitationData): string {
   const title = escapeHtml(meeting.title);
   const date = escapeHtml(formatInvitationDate(meeting.date));
+  const meetingUrl = escapeHtml(meeting.meetingUrl);
   const participants = meeting.participants
     .map((participant) => `<li>${escapeHtml(participant)}</li>`)
     .join('');
@@ -48,6 +53,7 @@ export function buildInvitationHtml(meeting: MeetingInvitationData): string {
     `<p style="margin:0 0 8px"><strong>Дата и время:</strong> ${date}</p>`,
     '<p style="margin:0 0 4px"><strong>Участники:</strong></p>',
     `<ul style="margin:0;padding-left:20px">${participants}</ul>`,
+    `<p style="margin:12px 0 0"><strong>Ссылка на встречу:</strong> <a href="${meetingUrl}" style="color:#2563eb">${meetingUrl}</a></p>`,
     '</div>',
   ].join('');
 }

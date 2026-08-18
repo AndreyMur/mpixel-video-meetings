@@ -1,4 +1,5 @@
 import { NotFoundException } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import type { Meeting } from '@prisma/client';
 import { EmailService } from '../../email/email.service';
 import { PrismaService } from '../../prisma/prisma.service';
@@ -34,7 +35,12 @@ describe('UpdateMeetingHandler', () => {
     };
     handler = new UpdateMeetingHandler(
       prisma as unknown as PrismaService,
-      new MeetingInvitationService(emailService as unknown as EmailService),
+      new MeetingInvitationService(
+        emailService as unknown as EmailService,
+        {
+          get: jest.fn().mockReturnValue('http://localhost:3000'),
+        } as unknown as ConfigService,
+      ),
     );
   });
 

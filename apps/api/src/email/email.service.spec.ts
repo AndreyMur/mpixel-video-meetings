@@ -20,6 +20,7 @@ describe('EmailService', () => {
       title: 'Обсуждение дизайна',
       date,
       participants: ['alice@example.com', 'guest@example.com'],
+      meetingUrl: 'http://localhost:3000/meetings/m1',
     });
 
     expect(transport.sendMail).toHaveBeenCalledTimes(1);
@@ -36,8 +37,10 @@ describe('EmailService', () => {
     expect(mail.subject).toBe('Приглашение на встречу: Обсуждение дизайна');
     expect(mail.text).toContain('Обсуждение дизайна');
     expect(mail.text).toContain('guest@example.com');
+    expect(mail.text).toContain('http://localhost:3000/meetings/m1');
     expect(mail.html).toContain('<h2');
     expect(mail.html).toContain('alice@example.com');
+    expect(mail.html).toContain('http://localhost:3000/meetings/m1');
   });
 
   it('propagates SMTP transport failures', async () => {
@@ -48,6 +51,7 @@ describe('EmailService', () => {
         title: 'Встреча',
         date: new Date(),
         participants: ['guest@example.com'],
+        meetingUrl: 'http://localhost:3000/meetings/m1',
       }),
     ).rejects.toThrow('smtp down');
   });

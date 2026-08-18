@@ -1,4 +1,5 @@
 import type { Meeting } from '@prisma/client';
+import { ConfigService } from '@nestjs/config';
 import { EmailService } from '../../email/email.service';
 import { PrismaService } from '../../prisma/prisma.service';
 import { MeetingInvitationService } from '../meeting-invitation.service';
@@ -29,7 +30,12 @@ describe('CreateMeetingHandler', () => {
     };
     handler = new CreateMeetingHandler(
       prisma as unknown as PrismaService,
-      new MeetingInvitationService(emailService as unknown as EmailService),
+      new MeetingInvitationService(
+        emailService as unknown as EmailService,
+        {
+          get: jest.fn().mockReturnValue('http://localhost:3000'),
+        } as unknown as ConfigService,
+      ),
     );
   });
 
