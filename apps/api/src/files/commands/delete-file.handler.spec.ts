@@ -14,8 +14,8 @@ function makeFile(overrides: Partial<MeetingFile> = {}): MeetingFile {
     status: 'READY',
     objectKey: 'meetings/m/f1/x.pdf',
     metadata: null,
-    previewObjectKey: null,
-    transcriptObjectKey: null,
+    previewObjectKey: 'meetings/m/f1/preview.png',
+    transcriptObjectKey: 'meetings/m/f1/transcript.txt',
     errorMessage: null,
     meetingId: 'm',
     userId: 'uploader',
@@ -52,6 +52,13 @@ describe('DeleteFileHandler', () => {
     await handler.execute(new DeleteFileCommand('creator', 'm', 'f1'));
 
     expect(storage.deleteObject).toHaveBeenCalledWith('meetings/m/f1/x.pdf');
+    expect(storage.deleteObject).toHaveBeenCalledWith(
+      'meetings/m/f1/preview.png',
+    );
+    expect(storage.deleteObject).toHaveBeenCalledWith(
+      'meetings/m/f1/transcript.txt',
+    );
+    expect(storage.deleteObject).toHaveBeenCalledTimes(3);
     expect(prisma.meetingFile.delete).toHaveBeenCalledWith({
       where: { id: 'f1' },
     });
