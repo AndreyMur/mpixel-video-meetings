@@ -53,7 +53,7 @@ export class MeetingController {
     @CurrentUser() user: CurrentUserPayload,
     @Param('id') id: string,
   ): Promise<Meeting> {
-    return this.queryBus.execute(new GetMeetingQuery(user.sub, id));
+    return this.queryBus.execute(new GetMeetingQuery(user.sub, id, user.email));
   }
 
   @Post(':id/invitations')

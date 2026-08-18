@@ -12,14 +12,29 @@ export class DeleteFileHandler implements ICommandHandler<DeleteFileCommand> {
   ) {}
 
   async execute(command: DeleteFileCommand): Promise<void> {
+    const meeting = await this.prisma.meeting.findFirst({
+      where: {
+        id: command.meetingId,
+        OR: [
+          { userId: command.userId },
+          { accesses: { some: { userId: command.userId } } },
+        ],
+      },
+    });
+    if (!meeting) {
+      throw new NotFoundException('Meeting not found');
+    }
+
     const file = await this.prisma.meetingFile.findFirst({
       where: {
         id: command.fileId,
         meetingId: command.meetingId,
-        userId: command.userId,
       },
     });
-    if (!file) {
+    if (
+      !file ||
+      (meeting.userId !== command.userId && file.userId !== command.userId)
+    ) {
       throw new NotFoundException('File not found');
     }
 

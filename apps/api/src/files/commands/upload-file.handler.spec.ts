@@ -109,6 +109,25 @@ describe('UploadFileHandler', () => {
     expect(prisma.meetingFile.update).not.toHaveBeenCalled();
   });
 
+  it('allows an invited user with access to upload a file', async () => {
+    prisma.meeting.findFirst.mockResolvedValue({ id: 'm' });
+    stubCreate();
+
+    const result = await handler.execute(
+      new UploadFileCommand('u2', 'm', makeFile()),
+    );
+
+    expect(prisma.meeting.findFirst).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: {
+          id: 'm',
+          OR: [{ userId: 'u2' }, { accesses: { some: { userId: 'u2' } } }],
+        },
+      }),
+    );
+    expect(result.status).toBe('PROCESSING');
+  });
+
   it('marks the file FAILED when enqueueing fails', async () => {
     prisma.meeting.findFirst.mockResolvedValue({ id: 'm' });
     stubCreate();

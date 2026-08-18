@@ -13,7 +13,13 @@ export class GetMeetingFilesHandler implements IQueryHandler<GetMeetingFilesQuer
 
   async execute(query: GetMeetingFilesQuery): Promise<MeetingFileResponse[]> {
     const meeting = await this.prisma.meeting.findFirst({
-      where: { id: query.meetingId, userId: query.userId },
+      where: {
+        id: query.meetingId,
+        OR: [
+          { userId: query.userId },
+          { accesses: { some: { userId: query.userId } } },
+        ],
+      },
     });
     if (!meeting) {
       throw new NotFoundException('Meeting not found');

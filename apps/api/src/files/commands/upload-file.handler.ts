@@ -32,7 +32,13 @@ export class UploadFileHandler implements ICommandHandler<UploadFileCommand> {
       }
 
       const meeting = await this.prisma.meeting.findFirst({
-        where: { id: command.meetingId, userId: command.userId },
+        where: {
+          id: command.meetingId,
+          OR: [
+            { userId: command.userId },
+            { accesses: { some: { userId: command.userId } } },
+          ],
+        },
       });
       if (!meeting) {
         throw new NotFoundException('Meeting not found');
