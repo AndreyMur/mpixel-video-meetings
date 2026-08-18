@@ -12,16 +12,19 @@ export class CreateMeetingHandler implements ICommandHandler<CreateMeetingComman
   ) {}
 
   async execute(command: CreateMeetingCommand): Promise<Meeting> {
+    const participants = [
+      ...new Set([command.email, ...(command.dto.participants ?? [])]),
+    ];
     const meeting = await this.prisma.meeting.create({
       data: {
         title: command.dto.title,
         description: command.dto.description,
         date: new Date(command.dto.date),
-        participants: command.dto.participants ?? [],
+        participants,
         userId: command.userId,
       },
     });
-    await this.invitations.sendForMeeting(meeting);
+    await this.invitations.sendForMeeting(meeting, command.email);
     return meeting;
   }
 }

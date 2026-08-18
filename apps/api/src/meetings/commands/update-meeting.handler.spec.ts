@@ -1,10 +1,13 @@
 import { NotFoundException } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import type { Meeting } from '@prisma/client';
 import { EmailService } from '../../email/email.service';
 import { PrismaService } from '../../prisma/prisma.service';
 import { MeetingInvitationService } from '../meeting-invitation.service';
 import { UpdateMeetingCommand } from './update-meeting.command';
 import { UpdateMeetingHandler } from './update-meeting.handler';
+
+const ORGANIZER = 'organizer@example.com';
 
 function makeMeeting(overrides: Partial<Meeting> = {}): Meeting {
   return {
@@ -32,11 +35,16 @@ describe('UpdateMeetingHandler', () => {
     };
     handler = new UpdateMeetingHandler(
       prisma as unknown as PrismaService,
-      new MeetingInvitationService(emailService as unknown as EmailService),
+      new MeetingInvitationService(
+        emailService as unknown as EmailService,
+        {
+          get: jest.fn().mockReturnValue('http://localhost:3000'),
+        } as unknown as ConfigService,
+      ),
     );
   });
 
-  it('updates all provided fields', async () => {
+  it('updates all provided fields and keeps the creator in participants', async () => {
     const meeting = makeMeeting();
     prisma.meeting.findFirst.mockResolvedValue(meeting);
     prisma.meeting.update.mockResolvedValue(
@@ -44,7 +52,7 @@ describe('UpdateMeetingHandler', () => {
     );
 
     await handler.execute(
-      new UpdateMeetingCommand('u1', 'm1', {
+      new UpdateMeetingCommand('u1', 'm1', ORGANIZER, {
         title: 'New title',
         description: 'Desc',
         date: '2026-09-02T10:00:00.000Z',
@@ -61,7 +69,7 @@ describe('UpdateMeetingHandler', () => {
         title: 'New title',
         description: 'Desc',
         date: new Date('2026-09-02T10:00:00.000Z'),
-        participants: ['bob@example.com'],
+        participants: [ORGANIZER, 'bob@example.com'],
       },
     });
   });
@@ -73,7 +81,7 @@ describe('UpdateMeetingHandler', () => {
     );
 
     await handler.execute(
-      new UpdateMeetingCommand('u1', 'm1', { title: 'Only title' }),
+      new UpdateMeetingCommand('u1', 'm1', ORGANIZER, { title: 'Only title' }),
     );
 
     expect(prisma.meeting.update).toHaveBeenCalledWith({
@@ -87,7 +95,7 @@ describe('UpdateMeetingHandler', () => {
     prisma.meeting.update.mockResolvedValue(makeMeeting());
 
     await handler.execute(
-      new UpdateMeetingCommand('u1', 'm1', {
+      new UpdateMeetingCommand('u1', 'm1', ORGANIZER, {
         title: null,
         date: null,
         participants: null,
@@ -108,7 +116,7 @@ describe('UpdateMeetingHandler', () => {
     prisma.meeting.update.mockResolvedValue(makeMeeting());
 
     await handler.execute(
-      new UpdateMeetingCommand('u1', 'm1', { description: null }),
+      new UpdateMeetingCommand('u1', 'm1', ORGANIZER, { description: null }),
     );
 
     expect(prisma.meeting.update).toHaveBeenCalledWith({
@@ -117,16 +125,16 @@ describe('UpdateMeetingHandler', () => {
     });
   });
 
-  it('sends an updated invitation to every participant when the meeting changed', async () => {
+  it('sends an updated invitation to every non-organizer participant when the meeting changed', async () => {
     prisma.meeting.findFirst.mockResolvedValue(makeMeeting());
     const updated = makeMeeting({
       title: 'New title',
-      participants: ['alice@example.com', 'bob@example.com'],
+      participants: [ORGANIZER, 'alice@example.com', 'bob@example.com'],
     });
     prisma.meeting.update.mockResolvedValue(updated);
 
     await handler.execute(
-      new UpdateMeetingCommand('u1', 'm1', {
+      new UpdateMeetingCommand('u1', 'm1', ORGANIZER, {
         title: 'New title',
         participants: ['alice@example.com', 'bob@example.com'],
       }),
@@ -140,8 +148,12 @@ describe('UpdateMeetingHandler', () => {
     expect(emailService.sendMeetingInvitation).toHaveBeenCalledWith(
       'alice@example.com',
       expect.objectContaining({
-        participants: ['alice@example.com', 'bob@example.com'],
+        participants: [ORGANIZER, 'alice@example.com', 'bob@example.com'],
       }),
+    );
+    expect(emailService.sendMeetingInvitation).not.toHaveBeenCalledWith(
+      ORGANIZER,
+      expect.anything(),
     );
   });
 
@@ -150,7 +162,7 @@ describe('UpdateMeetingHandler', () => {
     prisma.meeting.findFirst.mockResolvedValue(unchanged);
     prisma.meeting.update.mockResolvedValue(unchanged);
 
-    await handler.execute(new UpdateMeetingCommand('u1', 'm1', {}));
+    await handler.execute(new UpdateMeetingCommand('u1', 'm1', ORGANIZER, {}));
 
     expect(prisma.meeting.update).toHaveBeenCalledTimes(1);
     expect(emailService.sendMeetingInvitation).not.toHaveBeenCalled();
@@ -161,7 +173,7 @@ describe('UpdateMeetingHandler', () => {
 
     await expect(
       handler.execute(
-        new UpdateMeetingCommand('u1', 'm1', { title: 'New title' }),
+        new UpdateMeetingCommand('u1', 'm1', ORGANIZER, { title: 'New title' }),
       ),
     ).rejects.toBeInstanceOf(NotFoundException);
 

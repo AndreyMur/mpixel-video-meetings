@@ -5,6 +5,7 @@ export interface AuthResponse {
 export interface Meeting {
   id: string;
   title: string;
+  description?: string | null;
   date: string;
   participants: string[];
   userId: string;

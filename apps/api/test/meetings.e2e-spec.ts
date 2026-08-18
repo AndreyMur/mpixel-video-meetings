@@ -66,7 +66,7 @@ describe('Meetings (e2e)', () => {
 
   describe('POST /meetings', () => {
     it('creates a meeting and returns it with 201', async () => {
-      const { token } = await registerUser(app);
+      const user = await registerUser(app);
       const body: MeetingPayload = {
         title: 'Sprint planning',
         description: 'Quarterly goals',
@@ -76,14 +76,14 @@ describe('Meetings (e2e)', () => {
 
       const response = await request(app.getHttpServer())
         .post('/meetings')
-        .set(auth(token))
+        .set(auth(user.token))
         .send(body)
         .expect(201);
 
       expect(response.body).toMatchObject({
         title: body.title,
         description: body.description,
-        participants: body.participants,
+        participants: [user.email, ...body.participants],
       });
       expect(response.body).toHaveProperty('id');
       expect(
@@ -126,17 +126,17 @@ describe('Meetings (e2e)', () => {
     });
 
     it('creates a meeting without participants and description', async () => {
-      const { token } = await registerUser(app);
+      const user = await registerUser(app);
 
       const response = await request(app.getHttpServer())
         .post('/meetings')
-        .set(auth(token))
+        .set(auth(user.token))
         .send({ title: 'Solo', date: meetingDate })
         .expect(201);
 
       expect(response.body).toMatchObject({
         title: 'Solo',
-        participants: [],
+        participants: [user.email],
         description: null,
       });
     });
@@ -241,7 +241,7 @@ describe('Meetings (e2e)', () => {
       expect(response.body).toMatchObject({
         id: createdId,
         title: body.title,
-        participants: body.participants,
+        participants: [user.email, ...body.participants],
       });
     });
 
@@ -290,7 +290,7 @@ describe('Meetings (e2e)', () => {
         id: meetingId,
         title: 'Updated title',
         description: 'Updated description',
-        participants: ['carol@example.com'],
+        participants: [user.email, 'carol@example.com'],
       });
       expect(
         new Date((response.body as MeetingResponse).date).toISOString(),

@@ -17,8 +17,10 @@ import type { CurrentUserPayload } from '../auth/decorators/current-user.decorat
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { CreateMeetingCommand } from './commands/create-meeting.command';
 import { DeleteMeetingCommand } from './commands/delete-meeting.command';
+import { SendInvitationCommand } from './commands/send-invitation.command';
 import { UpdateMeetingCommand } from './commands/update-meeting.command';
 import { CreateMeetingDto } from './dto/create-meeting.dto';
+import { SendInvitationDto } from './dto/send-invitation.dto';
 import { UpdateMeetingDto } from './dto/update-meeting.dto';
 import { GetMeetingQuery } from './queries/get-meeting.query';
 import { GetMeetingsQuery } from './queries/get-meetings.query';
@@ -36,7 +38,9 @@ export class MeetingController {
     @CurrentUser() user: CurrentUserPayload,
     @Body() dto: CreateMeetingDto,
   ): Promise<Meeting> {
-    return this.commandBus.execute(new CreateMeetingCommand(user.sub, dto));
+    return this.commandBus.execute(
+      new CreateMeetingCommand(user.sub, user.email, dto),
+    );
   }
 
   @Get()
@@ -52,13 +56,26 @@ export class MeetingController {
     return this.queryBus.execute(new GetMeetingQuery(user.sub, id, user.email));
   }
 
+  @Post(':id/invitations')
+  sendInvitation(
+    @CurrentUser() user: CurrentUserPayload,
+    @Param('id') id: string,
+    @Body() dto: SendInvitationDto,
+  ): Promise<Meeting> {
+    return this.commandBus.execute(
+      new SendInvitationCommand(user.sub, user.email, id, dto.email),
+    );
+  }
+
   @Patch(':id')
   update(
     @CurrentUser() user: CurrentUserPayload,
     @Param('id') id: string,
     @Body() dto: UpdateMeetingDto,
   ): Promise<Meeting> {
-    return this.commandBus.execute(new UpdateMeetingCommand(user.sub, id, dto));
+    return this.commandBus.execute(
+      new UpdateMeetingCommand(user.sub, id, user.email, dto),
+    );
   }
 
   @Delete(':id')

@@ -27,11 +27,13 @@ export class UpdateMeetingHandler implements ICommandHandler<UpdateMeetingComman
         ...(title != null && { title }),
         ...(description !== undefined && { description }),
         ...(date != null && { date: new Date(date) }),
-        ...(participants != null && { participants }),
+        ...(participants != null && {
+          participants: [...new Set([command.email, ...participants])],
+        }),
       },
     });
     if (meetingChanged(meeting, updated)) {
-      await this.invitations.sendForMeeting(updated);
+      await this.invitations.sendForMeeting(updated, command.email);
     }
     return updated;
   }
