@@ -484,6 +484,99 @@ describe('Meetings (e2e)', () => {
     });
   });
 
+  describe('Invited user access', () => {
+    it('grants access by email from participants and shows the meeting in the list', async () => {
+      const owner = await registerUser(app);
+      const invited = await registerUser(app);
+
+      const created = await request(app.getHttpServer())
+        .post('/meetings')
+        .set(auth(owner.token))
+        .send({
+          title: 'Shared meeting',
+          date: meetingDate,
+          participants: [invited.email],
+        })
+        .expect(201);
+      const meetingId = (created.body as MeetingResponse).id;
+
+      const opened = await request(app.getHttpServer())
+        .get(`/meetings/${meetingId}`)
+        .set(auth(invited.token))
+        .expect(200);
+      expect((opened.body as MeetingResponse).title).toBe('Shared meeting');
+
+      const list = await request(app.getHttpServer())
+        .get('/meetings')
+        .set(auth(invited.token))
+        .expect(200);
+      expect(
+        (list.body as MeetingResponse[]).map((meeting) => meeting.id),
+      ).toContain(meetingId);
+    });
+
+    it('grants an invited user access to the meeting files', async () => {
+      const owner = await registerUser(app);
+      const invited = await registerUser(app);
+
+      const created = await request(app.getHttpServer())
+        .post('/meetings')
+        .set(auth(owner.token))
+        .send({
+          title: 'With files',
+          date: meetingDate,
+          participants: [invited.email],
+        })
+        .expect(201);
+      const meetingId = (created.body as MeetingResponse).id;
+
+      const uploaded = await request(app.getHttpServer())
+        .post(`/meetings/${meetingId}/files`)
+        .set(auth(owner.token))
+        .attach('file', Buffer.from('%PDF-1.4 test content'), {
+          filename: 'notes.pdf',
+          contentType: 'application/pdf',
+        })
+        .expect(201);
+      const fileId = (uploaded.body as { id: string }).id;
+
+      await request(app.getHttpServer())
+        .get(`/meetings/${meetingId}`)
+        .set(auth(invited.token))
+        .expect(200);
+
+      const files = await request(app.getHttpServer())
+        .get(`/meetings/${meetingId}/files`)
+        .set(auth(invited.token))
+        .expect(200);
+      expect((files.body as { id: string }[]).map((file) => file.id)).toContain(
+        fileId,
+      );
+
+      await request(app.getHttpServer())
+        .get(`/meetings/${meetingId}/files/${fileId}/download`)
+        .set(auth(invited.token))
+        .expect(200);
+    });
+
+    it('returns 404 for a user whose email is not in participants', async () => {
+      const owner = await registerUser(app);
+      const stranger = await registerUser(app);
+
+      const created = await request(app.getHttpServer())
+        .post('/meetings')
+        .set(auth(owner.token))
+        .send({ title: 'Private', date: meetingDate, participants: [] })
+        .expect(201);
+      const meetingId = (created.body as MeetingResponse).id;
+
+      await request(app.getHttpServer())
+        .get(`/meetings/${meetingId}`)
+        .set(auth(stranger.token))
+        .expect(404);
+    });
+  });
+
   describe('Full CRUD cycle', () => {
     it('create → update → delete for a single user', async () => {
       const user = await registerUser(app);

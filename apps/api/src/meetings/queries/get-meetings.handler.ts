@@ -9,7 +9,12 @@ export class GetMeetingsHandler implements IQueryHandler<GetMeetingsQuery> {
 
   async execute(query: GetMeetingsQuery): Promise<Meeting[]> {
     return this.prisma.meeting.findMany({
-      where: { userId: query.userId },
+      where: {
+        OR: [
+          { userId: query.userId },
+          { accesses: { some: { userId: query.userId } } },
+        ],
+      },
       orderBy: { createdAt: 'desc' },
     });
   }

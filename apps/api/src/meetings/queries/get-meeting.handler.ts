@@ -10,11 +10,42 @@ export class GetMeetingHandler implements IQueryHandler<GetMeetingQuery> {
 
   async execute(query: GetMeetingQuery): Promise<Meeting> {
     const meeting = await this.prisma.meeting.findFirst({
-      where: { id: query.id, userId: query.userId },
+      where: {
+        id: query.id,
+        OR: [
+          { userId: query.userId },
+          { accesses: { some: { userId: query.userId } } },
+        ],
+      },
     });
-    if (!meeting) {
+    if (meeting) {
+      return meeting;
+    }
+
+    const candidate = await this.prisma.meeting.findUnique({
+      where: { id: query.id },
+    });
+    if (!candidate) {
       throw new NotFoundException('Meeting not found');
     }
-    return meeting;
+
+    const email = query.email.toLowerCase();
+    if (
+      !candidate.participants.some(
+        (participant) => participant.toLowerCase() === email,
+      )
+    ) {
+      throw new NotFoundException('Meeting not found');
+    }
+
+    await this.prisma.meetingAccess.upsert({
+      where: {
+        meetingId_userId: { meetingId: query.id, userId: query.userId },
+      },
+      create: { meetingId: query.id, userId: query.userId },
+      update: {},
+    });
+
+    return candidate;
   }
 }
