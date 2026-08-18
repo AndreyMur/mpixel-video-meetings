@@ -89,3 +89,24 @@ export async function deleteMeeting(
     throw await parseError(res);
   }
 }
+
+export async function sendMeetingInvitation(
+  token: string,
+  meetingId: string,
+  email: string,
+): Promise<Meeting> {
+  const res = await fetch(`/api/meetings/${meetingId}/invitations`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${token}`,
+    },
+    body: JSON.stringify({ email }),
+  });
+
+  if (!res.ok) {
+    throw await parseError(res);
+  }
+
+  return (await res.json()) as Meeting;
+}

@@ -3,6 +3,7 @@ import {
   deleteMeeting,
   fromDatetimeLocal,
   parseParticipants,
+  sendMeetingInvitation,
   toDatetimeLocal,
   updateMeeting,
   validateParticipants,
@@ -134,6 +135,47 @@ describe('updateMeeting', () => {
     const request = init as RequestInit;
     expect(request.method).toBe('PATCH');
     expect(JSON.parse(request.body as string)).toEqual(input);
+  });
+});
+
+describe('sendMeetingInvitation', () => {
+  it('sends a POST with the email body and bearer token', async () => {
+    const fetchMock = vi.fn().mockResolvedValue(jsonResponse(201, meeting));
+    vi.stubGlobal('fetch', fetchMock);
+
+    await expect(
+      sendMeetingInvitation('token-1', 'm1', 'b@example.com'),
+    ).resolves.toEqual(meeting);
+
+    const [url, init] = fetchMock.mock.calls[0];
+    expect(url).toBe('/api/meetings/m1/invitations');
+    const request = init as RequestInit;
+    expect(request.method).toBe('POST');
+    expect(JSON.parse(request.body as string)).toEqual({
+      email: 'b@example.com',
+    });
+    expect(request.headers).toMatchObject({
+      Authorization: 'Bearer token-1',
+      'Content-Type': 'application/json',
+    });
+  });
+
+  it('throws an ApiError when the backend rejects the invite', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockResolvedValue(
+        jsonResponse(400, {
+          message: 'Email is not a participant of the meeting',
+        }),
+      ),
+    );
+    await expect(
+      sendMeetingInvitation('token-1', 'm1', 'nobody@example.com'),
+    ).rejects.toMatchObject({
+      name: 'ApiError',
+      status: 400,
+      message: 'Email is not a participant of the meeting',
+    });
   });
 });
 
