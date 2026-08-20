@@ -47,7 +47,7 @@ Run from this directory or via workspace from the repo root (`npm run <script> -
 - TypeScript is strict — `strictNullChecks`, `noImplicitAny`, `isolatedModules` are on.
 - Copy `apps/api/.env.example` to `apps/api/.env` for local config (`PORT=4000`, `FRONTEND_URL=http://localhost:3000`).
 - `.env` holds `DATABASE_URL` (Postgres from docker-compose, port 5433), `JWT_SECRET`/`JWT_EXPIRES_IN`, S3 access vars (`S3_ENDPOINT`, `S3_REGION`, `S3_ACCESS_KEY`, `S3_SECRET_KEY`, `S3_BUCKET`, `MAX_FILE_SIZE_BYTES`, `MAX_AVATAR_SIZE_BYTES`), worker vars (`REDIS_URL`, `WORKER_ATTEMPTS`, `WORKER_BACKOFF_MS`, `FFMPEG_BIN`, `FFPROBE_BIN`), and SMTP vars (`SMTP_HOST`, `SMTP_PORT`, `SMTP_SECURE`, `SMTP_USER`, `SMTP_PASS`, `SMTP_FROM`; when `SMTP_HOST` is empty, invitations are silently skipped).
-- Run `docker compose up -d db minio redis` to start the local database, object storage, and Redis before migrations/e2e tests; the worker runs as the `api-worker` service (`--profile worker`).
+- Run `docker compose up -d db minio redis mailhog` to start the local database, object storage, Redis, and the local mail catcher (Mailhog UI at `http://localhost:8025`, SMTP on `localhost:1025`); the worker runs as the `api-worker` service (`--profile worker`).
 - Do not add code comments unless asked.
 - Verify with `npm run lint` (and `npm test` for changed code) before finishing.
 - Keep this file up to date: when architecture changes (new modules/controllers/services, new scripts, config changes), update the relevant sections in the same change.
