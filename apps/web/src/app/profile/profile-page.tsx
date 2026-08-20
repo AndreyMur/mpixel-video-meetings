@@ -1,15 +1,10 @@
 'use client';
 
-import {
-  ArrowLeft,
-  ArrowRightFromSquare,
-  TriangleExclamation,
-  Video,
-} from '@gravity-ui/icons';
+import { ArrowLeft, TriangleExclamation, Video } from '@gravity-ui/icons';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { Button, Card, Skeleton } from '@heroui/react';
+import { Card, Skeleton } from '@heroui/react';
 import {
   ApiError,
   clearAccessToken,
@@ -17,6 +12,7 @@ import {
   getSessionUser,
 } from '@/lib/auth';
 import { fetchAvatarSrc, getProfile, type UserProfile } from '@/lib/profile';
+import { HeaderUserArea } from '@/components/header-user-area';
 import { AvatarField } from './avatar-form';
 import { NameForm } from './name-form';
 import { PasswordForm } from './password-form';
@@ -112,12 +108,6 @@ export default function ProfilePage() {
   }, [router, setAvatarWithUrl]);
 
   const token = getAccessToken();
-  const email = profile?.email ?? null;
-
-  const handleLogout = () => {
-    clearAccessToken();
-    router.replace('/login');
-  };
 
   const handleProfileChanged = async (updated: UserProfile) => {
     setProfile(updated);
@@ -147,13 +137,10 @@ export default function ProfilePage() {
           MPixel Meeting
         </span>
       </Link>
-      <div className="flex items-center gap-3">
-        <span className="hidden text-sm text-muted sm:block">{email}</span>
-        <Button variant="tertiary" size="sm" onPress={handleLogout}>
-          <ArrowRightFromSquare className="size-4" />
-          Выйти
-        </Button>
-      </div>
+      <HeaderUserArea
+        displayName={profile ? profile.name || profile.email : null}
+        avatarSrc={avatarSrc}
+      />
     </header>
   );
 

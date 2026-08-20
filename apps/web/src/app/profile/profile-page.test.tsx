@@ -1,4 +1,4 @@
-import { render, screen, waitFor } from '@testing-library/react';
+import { render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { ApiError } from '@/lib/auth';
@@ -130,11 +130,11 @@ describe('ProfilePage', () => {
   it('renders email, name and avatar from the profile', async () => {
     render(<ProfilePage />);
 
-    expect(await screen.findByText('Alice')).toBeInTheDocument();
+    expect((await screen.findAllByText('Alice')).length).toBeGreaterThan(0);
     expect(screen.getAllByText('user@example.com').length).toBeGreaterThan(0);
     expect(
-      await screen.findByAltText('Аватар пользователя'),
-    ).toBeInTheDocument();
+      (await screen.findAllByAltText('Аватар пользователя')).length,
+    ).toBeGreaterThan(0);
     expect(profileMocks.getProfile).toHaveBeenCalledWith('token-1');
   });
 
@@ -176,7 +176,7 @@ describe('ProfilePage', () => {
     const userEventInstance = userEvent.setup();
     render(<ProfilePage />);
 
-    await screen.findByText('Alice');
+    await screen.findAllByText('Alice');
 
     const input = await screen.findByLabelText('Имя (display name)');
     await userEventInstance.clear(input);
@@ -185,15 +185,17 @@ describe('ProfilePage', () => {
       screen.getByRole('button', { name: 'Сохранить' }),
     );
 
-    expect(await screen.findByText('Мария')).toBeInTheDocument();
+    const header = screen.getByText('MPixel Meeting').closest('header');
+    expect(header).not.toBeNull();
+    expect(within(header!).getByText('Мария')).toBeInTheDocument();
     expect(profileMocks.updateName).toHaveBeenCalledWith('token-1', 'Мария');
   });
 
   it('shows the name validation error without submitting', async () => {
-    const userEventInstance = userEvent.setup();
+    const userEventInstance = userEvent.setup({ delay: null });
     render(<ProfilePage />);
 
-    await screen.findByText('Alice');
+    await screen.findAllByText('Alice');
 
     const input = await screen.findByLabelText('Имя (display name)');
     await userEventInstance.clear(input);
@@ -215,7 +217,7 @@ describe('ProfilePage', () => {
     const userEventInstance = userEvent.setup();
     render(<ProfilePage />);
 
-    await screen.findByText('Alice');
+    await screen.findAllByText('Alice');
 
     await userEventInstance.type(
       screen.getByLabelText('Текущий пароль'),
@@ -247,7 +249,7 @@ describe('ProfilePage', () => {
     const userEventInstance = userEvent.setup();
     render(<ProfilePage />);
 
-    await screen.findByText('Alice');
+    await screen.findAllByText('Alice');
 
     await userEventInstance.type(
       screen.getByLabelText('Текущий пароль'),
@@ -277,7 +279,7 @@ describe('ProfilePage', () => {
     const userEventInstance = userEvent.setup();
     const { container } = render(<ProfilePage />);
 
-    await screen.findByText('Alice');
+    await screen.findAllByText('Alice');
 
     const file = new File(['image'], 'avatar.png', { type: 'image/png' });
     const input = container.querySelector('input[type="file"]');
@@ -301,7 +303,7 @@ describe('ProfilePage', () => {
     const userEventInstance = userEvent.setup();
     const { container } = render(<ProfilePage />);
 
-    await screen.findByText('Alice');
+    await screen.findAllByText('Alice');
 
     const file = new File(['image'], 'avatar.png', { type: 'image/png' });
     const input = container.querySelector('input[type="file"]');
@@ -316,7 +318,7 @@ describe('ProfilePage', () => {
     const userEventInstance = userEvent.setup();
     render(<ProfilePage />);
 
-    await screen.findByAltText('Аватар пользователя');
+    await screen.findAllByAltText('Аватар пользователя');
 
     await userEventInstance.click(
       screen.getByRole('button', { name: 'Удалить' }),
@@ -336,7 +338,7 @@ describe('ProfilePage', () => {
     profileMocks.fetchAvatarSrc.mockRejectedValue(new Error('network'));
     render(<ProfilePage />);
 
-    expect(await screen.findByText('Alice')).toBeInTheDocument();
+    expect((await screen.findAllByText('Alice')).length).toBeGreaterThan(0);
     expect(screen.queryByRole('alert')).not.toBeInTheDocument();
     expect(
       screen.queryByAltText('Аватар пользователя'),

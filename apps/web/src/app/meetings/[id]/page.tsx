@@ -2,7 +2,6 @@
 
 import {
   ArrowLeft,
-  ArrowRightFromSquare,
   Calendar,
   CircleCheckFill,
   CircleFill,
@@ -52,6 +51,7 @@ import {
   validateMeetingFile,
 } from '@/lib/files';
 import { deleteMeeting } from '@/lib/meetings';
+import { HeaderUserArea } from '@/components/header-user-area';
 
 function formatDate(date: string): string {
   return new Intl.DateTimeFormat('ru-RU', {
@@ -266,11 +266,6 @@ export default function MeetingDetailPage() {
     };
   }, [meetingId, router]);
 
-  const handleLogout = () => {
-    clearAccessToken();
-    router.replace('/login');
-  };
-
   const runAuthorized = async (
     action: () => Promise<void>,
     onError: (message: string) => void,
@@ -402,13 +397,7 @@ export default function MeetingDetailPage() {
           MPixel Meeting
         </span>
       </Link>
-      <div className="flex items-center gap-3">
-        <span className="hidden text-sm text-muted sm:block">{email}</span>
-        <Button variant="tertiary" size="sm" onPress={handleLogout}>
-          <ArrowRightFromSquare className="size-4" />
-          Выйти
-        </Button>
-      </div>
+      <HeaderUserArea />
     </header>
   );
 

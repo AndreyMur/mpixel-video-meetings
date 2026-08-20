@@ -60,6 +60,20 @@ vi.mock('@/lib/meetings', async (importOriginal) => {
   };
 });
 
+const profileMocks = vi.hoisted(() => ({
+  getProfile: vi.fn(),
+  fetchAvatarSrc: vi.fn(),
+}));
+
+vi.mock('@/lib/profile', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('@/lib/profile')>();
+  return {
+    ...actual,
+    getProfile: profileMocks.getProfile,
+    fetchAvatarSrc: profileMocks.fetchAvatarSrc,
+  };
+});
+
 const meeting: Meeting = {
   id: 'm1',
   title: 'Еженедельный синк',
@@ -80,6 +94,12 @@ beforeEach(() => {
   authMocks.getMeetings.mockReset().mockResolvedValue([meeting]);
   authMocks.clearAccessToken.mockReset();
   meetingsMocks.deleteMeeting.mockReset().mockResolvedValue(undefined);
+  profileMocks.getProfile.mockReset().mockResolvedValue({
+    email: 'user@example.com',
+    name: null,
+    avatarUrl: null,
+  });
+  profileMocks.fetchAvatarSrc.mockReset().mockResolvedValue(null);
 });
 
 afterEach(() => {
@@ -110,6 +130,24 @@ describe('MeetingsPage', () => {
 
     expect(await screen.findByText('Еженедельный синк')).toBeInTheDocument();
     expect(authMocks.getMeetings).toHaveBeenCalledWith('token-1');
+  });
+
+  it('shows the display name in the header when the profile has a name', async () => {
+    profileMocks.getProfile.mockResolvedValue({
+      email: 'user@example.com',
+      name: 'Alice',
+      avatarUrl: null,
+    });
+    render(<MeetingsPage />);
+
+    expect(await screen.findByText('Alice')).toBeInTheDocument();
+    expect(profileMocks.getProfile).toHaveBeenCalledWith('token-1');
+  });
+
+  it('falls back to the email in the header when the profile has no name', async () => {
+    render(<MeetingsPage />);
+
+    expect(await screen.findByText('user@example.com')).toBeInTheDocument();
   });
 
   it('links each meeting to its details page', async () => {

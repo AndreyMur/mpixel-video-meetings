@@ -1,7 +1,6 @@
 'use client';
 
 import {
-  ArrowRightFromSquare,
   Calendar,
   Clock,
   Pencil,
@@ -33,6 +32,7 @@ import {
   type Meeting,
 } from '@/lib/auth';
 import { deleteMeeting } from '@/lib/meetings';
+import { HeaderUserArea } from '@/components/header-user-area';
 
 function formatDate(date: string): string {
   return new Intl.DateTimeFormat('ru-RU', {
@@ -181,7 +181,6 @@ export default function MeetingsPage() {
   const [meetings, setMeetings] = useState<Meeting[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [email, setEmail] = useState<string | null>(null);
   const [deletingId, setDeletingId] = useState<string | null>(null);
 
   useEffect(() => {
@@ -202,7 +201,6 @@ export default function MeetingsPage() {
         if (cancelled) {
           return;
         }
-        setEmail(user.email);
         setMeetings(data);
         setError(null);
       })
@@ -250,11 +248,6 @@ export default function MeetingsPage() {
     }
   };
 
-  const handleLogout = () => {
-    clearAccessToken();
-    router.replace('/login');
-  };
-
   return (
     <main className="flex min-h-dvh flex-col bg-background">
       <header className="flex items-center justify-between gap-4 border-b border-border/60 px-4 py-4 sm:px-8">
@@ -267,13 +260,7 @@ export default function MeetingsPage() {
             MPixel Meeting
           </span>
         </Link>
-        <div className="flex items-center gap-3">
-          <span className="hidden text-sm text-muted sm:block">{email}</span>
-          <Button variant="tertiary" size="sm" onPress={handleLogout}>
-            <ArrowRightFromSquare className="size-4" />
-            Выйти
-          </Button>
-        </div>
+        <HeaderUserArea />
       </header>
 
       <div className="mx-auto flex w-full max-w-4xl flex-1 flex-col gap-8 px-4 py-8 sm:px-8">

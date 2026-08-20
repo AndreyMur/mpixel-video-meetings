@@ -1,4 +1,4 @@
-import { render, screen, waitFor } from '@testing-library/react';
+import { render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { ApiError, type Meeting } from '@/lib/auth';
@@ -77,6 +77,20 @@ vi.mock('@/lib/meetings', async (importOriginal) => {
   };
 });
 
+const profileMocks = vi.hoisted(() => ({
+  getProfile: vi.fn(),
+  fetchAvatarSrc: vi.fn(),
+}));
+
+vi.mock('@/lib/profile', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('@/lib/profile')>();
+  return {
+    ...actual,
+    getProfile: profileMocks.getProfile,
+    fetchAvatarSrc: profileMocks.fetchAvatarSrc,
+  };
+});
+
 vi.mock('@/components/file-upload-area', () => ({
   FileUploadArea: () => <div data-testid="file-upload-area" />,
 }));
@@ -103,6 +117,12 @@ beforeEach(() => {
   authMocks.clearAccessToken.mockReset();
   filesMocks.getMeetingFiles.mockReset().mockResolvedValue([]);
   meetingsMocks.deleteMeeting.mockReset().mockResolvedValue(undefined);
+  profileMocks.getProfile.mockReset().mockResolvedValue({
+    email: 'user@example.com',
+    name: null,
+    avatarUrl: null,
+  });
+  profileMocks.fetchAvatarSrc.mockReset().mockResolvedValue(null);
 });
 
 afterEach(() => {
@@ -133,6 +153,29 @@ describe('MeetingDetailPage', () => {
 
     expect(await screen.findByText('Еженедельный синк')).toBeInTheDocument();
     expect(authMocks.getMeeting).toHaveBeenCalledWith('m1', 'token-1');
+  });
+
+  it('shows the display name in the header when the profile has a name', async () => {
+    profileMocks.getProfile.mockResolvedValue({
+      email: 'user@example.com',
+      name: 'Alice',
+      avatarUrl: null,
+    });
+    render(<MeetingDetailPage />);
+
+    expect(await screen.findByText('Alice')).toBeInTheDocument();
+    expect(profileMocks.getProfile).toHaveBeenCalledWith('token-1');
+  });
+
+  it('falls back to the email in the header when the profile has no name', async () => {
+    render(<MeetingDetailPage />);
+
+    const header = await screen
+      .findByText('MPixel Meeting')
+      .then((node) => node.closest('header'));
+
+    expect(header).not.toBeNull();
+    expect(within(header!).getByText('user@example.com')).toBeInTheDocument();
   });
 
   it('links to the edit form', async () => {

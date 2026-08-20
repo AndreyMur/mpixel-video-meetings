@@ -1,6 +1,6 @@
 'use client';
 
-import { ArrowLeft, ArrowRightFromSquare, Video } from '@gravity-ui/icons';
+import { ArrowLeft, Video } from '@gravity-ui/icons';
 import Link from 'next/link';
 import { useParams, useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
@@ -13,6 +13,7 @@ import {
   getSessionUser,
   type Meeting,
 } from '@/lib/auth';
+import { HeaderUserArea } from '@/components/header-user-area';
 import { MeetingForm } from '../../meeting-form';
 
 export default function EditMeetingPage() {
@@ -81,11 +82,6 @@ export default function EditMeetingPage() {
     };
   }, [meetingId, router]);
 
-  const handleLogout = () => {
-    clearAccessToken();
-    router.replace('/login');
-  };
-
   const header = (
     <header className="flex items-center justify-between gap-4 border-b border-border/60 px-4 py-4 sm:px-8">
       <Link
@@ -97,13 +93,7 @@ export default function EditMeetingPage() {
           MPixel Meeting
         </span>
       </Link>
-      <div className="flex items-center gap-3">
-        <span className="hidden text-sm text-muted sm:block">{email}</span>
-        <Button variant="tertiary" size="sm" onPress={handleLogout}>
-          <ArrowRightFromSquare className="size-4" />
-          Выйти
-        </Button>
-      </div>
+      <HeaderUserArea />
     </header>
   );
 
