@@ -36,4 +36,19 @@ describe('liveKitConfigProvider', () => {
       apiSecret: DEFAULT_LIVEKIT_API_SECRET,
     });
   });
+
+  it('falls back to development defaults for empty env values', () => {
+    const config = liveKitConfigProvider.useFactory(
+      makeConfig({
+        LIVEKIT_URL: '',
+        LIVEKIT_API_KEY: '',
+        LIVEKIT_API_SECRET: '',
+      }),
+    );
+    expect(config).toEqual({
+      url: DEFAULT_LIVEKIT_URL,
+      apiKey: DEFAULT_LIVEKIT_API_KEY,
+      apiSecret: DEFAULT_LIVEKIT_API_SECRET,
+    });
+  });
 });

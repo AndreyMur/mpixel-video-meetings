@@ -11,14 +11,25 @@ export const liveKitConfigProvider = {
   provide: LIVEKIT_CONFIG,
   inject: [ConfigService],
   useFactory: (configService: ConfigService): LiveKitConfig => ({
-    url: configService.get<string>('LIVEKIT_URL', DEFAULT_LIVEKIT_URL),
-    apiKey: configService.get<string>(
+    url: readValue(configService, 'LIVEKIT_URL', DEFAULT_LIVEKIT_URL),
+    apiKey: readValue(
+      configService,
       'LIVEKIT_API_KEY',
       DEFAULT_LIVEKIT_API_KEY,
     ),
-    apiSecret: configService.get<string>(
+    apiSecret: readValue(
+      configService,
       'LIVEKIT_API_SECRET',
       DEFAULT_LIVEKIT_API_SECRET,
     ),
   }),
 };
+
+function readValue(
+  configService: ConfigService,
+  key: string,
+  fallback: string,
+): string {
+  const value = configService.get<string>(key);
+  return value ? value : fallback;
+}
