@@ -5,6 +5,7 @@ import { AppService } from './app.service';
 import { AuthModule } from './auth/auth.module';
 import { EmailModule } from './email/email.module';
 import { FilesModule } from './files/files.module';
+import { LiveKitModule } from './livekit/livekit.module';
 import { MeetingsModule } from './meetings/meeting.module';
 import { PrismaModule } from './prisma/prisma.module';
 import { ProcessingModule } from './processing/processing.module';
@@ -24,6 +25,7 @@ import { UsersModule } from './users/users.module';
     FilesModule,
     ProfileModule,
     EmailModule,
+    LiveKitModule,
   ],
   controllers: [AppController],
   providers: [AppService],
