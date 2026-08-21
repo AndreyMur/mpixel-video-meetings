@@ -1,7 +1,12 @@
 import { INestApplication, ValidationPipe } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
+import { TokenVerifier } from 'livekit-server-sdk';
 import request from 'supertest';
 import { App } from 'supertest/types';
+import {
+  DEFAULT_LIVEKIT_API_KEY,
+  DEFAULT_LIVEKIT_API_SECRET,
+} from './../src/livekit/livekit.constants';
 import { AppModule } from './../src/app.module';
 
 const password = 'Password123!';
@@ -574,6 +579,123 @@ describe('Meetings (e2e)', () => {
         .get(`/meetings/${meetingId}`)
         .set(auth(stranger.token))
         .expect(404);
+    });
+  });
+
+  describe('POST /meetings/:id/conference/token', () => {
+    const verifier = new TokenVerifier(
+      DEFAULT_LIVEKIT_API_KEY,
+      DEFAULT_LIVEKIT_API_SECRET,
+    );
+
+    it('returns a valid conference token for the creator', async () => {
+      const user = await registerUser(app);
+      const created = await request(app.getHttpServer())
+        .post('/meetings')
+        .set(auth(user.token))
+        .send({ title: 'Conference', date: meetingDate, participants: [] })
+        .expect(201);
+      const meetingId = (created.body as MeetingResponse).id;
+
+      const response = await request(app.getHttpServer())
+        .post(`/meetings/${meetingId}/conference/token`)
+        .set(auth(user.token))
+        .expect(201);
+
+      const { token } = response.body as { token: string };
+      expect(typeof token).toBe('string');
+      const claims = await verifier.verify(token);
+      expect(claims.video?.room).toBe(meetingId);
+      expect(claims.video?.roomJoin).toBe(true);
+      expect(claims.sub).toBeDefined();
+    });
+
+    it('returns a token for an invited user with access', async () => {
+      const owner = await registerUser(app);
+      const invited = await registerUser(app);
+
+      const created = await request(app.getHttpServer())
+        .post('/meetings')
+        .set(auth(owner.token))
+        .send({
+          title: 'Shared conference',
+          date: meetingDate,
+          participants: [invited.email],
+        })
+        .expect(201);
+      const meetingId = (created.body as MeetingResponse).id;
+
+      await request(app.getHttpServer())
+        .get(`/meetings/${meetingId}`)
+        .set(auth(invited.token))
+        .expect(200);
+
+      const response = await request(app.getHttpServer())
+        .post(`/meetings/${meetingId}/conference/token`)
+        .set(auth(invited.token))
+        .expect(201);
+
+      const { token } = response.body as { token: string };
+      const claims = await verifier.verify(token);
+      expect(claims.video?.room).toBe(meetingId);
+    });
+
+    it('grants MeetingAccess when an invited user requests a token directly', async () => {
+      const owner = await registerUser(app);
+      const invited = await registerUser(app);
+
+      const created = await request(app.getHttpServer())
+        .post('/meetings')
+        .set(auth(owner.token))
+        .send({
+          title: 'Direct token',
+          date: meetingDate,
+          participants: [invited.email],
+        })
+        .expect(201);
+      const meetingId = (created.body as MeetingResponse).id;
+
+      const response = await request(app.getHttpServer())
+        .post(`/meetings/${meetingId}/conference/token`)
+        .set(auth(invited.token))
+        .expect(201);
+
+      const { token } = response.body as { token: string };
+      const claims = await verifier.verify(token);
+      expect(claims.video?.room).toBe(meetingId);
+
+      const list = await request(app.getHttpServer())
+        .get('/meetings')
+        .set(auth(invited.token))
+        .expect(200);
+      expect(
+        (list.body as MeetingResponse[]).map((meeting) => meeting.id),
+      ).toContain(meetingId);
+    });
+
+    it('returns 404 and no token for a stranger', async () => {
+      const owner = await registerUser(app);
+      const stranger = await registerUser(app);
+
+      const created = await request(app.getHttpServer())
+        .post('/meetings')
+        .set(auth(owner.token))
+        .send({ title: 'Private', date: meetingDate, participants: [] })
+        .expect(201);
+      const meetingId = (created.body as MeetingResponse).id;
+
+      const response = await request(app.getHttpServer())
+        .post(`/meetings/${meetingId}/conference/token`)
+        .set(auth(stranger.token))
+        .expect(404);
+
+      expect(response.body).not.toHaveProperty('token');
+    });
+
+    it('returns 401 without a token', async () => {
+      await request(app.getHttpServer())
+        .post('/meetings/00000000-0000-0000-0000-000000000000/conference/token')
+        .expect(401);
     });
   });
 

@@ -16,12 +16,14 @@ import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import type { CurrentUserPayload } from '../auth/decorators/current-user.decorator';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { CreateMeetingCommand } from './commands/create-meeting.command';
+import { CreateConferenceTokenCommand } from './commands/create-conference-token.command';
 import { DeleteMeetingCommand } from './commands/delete-meeting.command';
 import { SendInvitationCommand } from './commands/send-invitation.command';
 import { UpdateMeetingCommand } from './commands/update-meeting.command';
 import { CreateMeetingDto } from './dto/create-meeting.dto';
 import { SendInvitationDto } from './dto/send-invitation.dto';
 import { UpdateMeetingDto } from './dto/update-meeting.dto';
+import type { ConferenceTokenResponse } from './response/conference-token.response';
 import { GetMeetingQuery } from './queries/get-meeting.query';
 import { GetMeetingsQuery } from './queries/get-meetings.query';
 
@@ -64,6 +66,16 @@ export class MeetingController {
   ): Promise<Meeting> {
     return this.commandBus.execute(
       new SendInvitationCommand(user.sub, user.email, id, dto.email),
+    );
+  }
+
+  @Post(':id/conference/token')
+  createConferenceToken(
+    @CurrentUser() user: CurrentUserPayload,
+    @Param('id') id: string,
+  ): Promise<ConferenceTokenResponse> {
+    return this.commandBus.execute(
+      new CreateConferenceTokenCommand(user.sub, user.email, id),
     );
   }
 
