@@ -57,7 +57,7 @@ services:
     image: livekit/livekit-server:latest
     container_name: mpixel-livekit
     restart: unless-stopped
-    command: --dev --bind 0.0.0.0
+    command: --dev --bind 0.0.0.0 --node-ip=${LIVEKIT_NODE_IP:-host.docker.internal}
     environment:
       LIVEKIT_KEYS: 'devkey: devsecret'
     ports:
