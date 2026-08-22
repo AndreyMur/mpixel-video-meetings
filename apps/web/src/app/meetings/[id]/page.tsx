@@ -440,7 +440,7 @@ export default function MeetingDetailPage() {
       {header}
 
       <div className="mx-auto flex w-full max-w-4xl flex-1 flex-col gap-8 px-4 py-8 sm:px-8">
-        <div className="flex items-start justify-between gap-4">
+        <div className="flex flex-col items-start gap-4 sm:flex-row sm:items-start sm:justify-between">
           <div className="flex min-w-0 flex-col gap-2">
             <Link
               href="/"
@@ -474,7 +474,14 @@ export default function MeetingDetailPage() {
             ) : null}
           </div>
           {meeting ? (
-            <div className="flex shrink-0 items-center gap-1">
+            <div className="flex shrink-0 items-center gap-2">
+              <Link
+                href={`/meetings/${meeting.id}/conference`}
+                className={`${buttonVariants({ size: 'sm', variant: 'primary' })} min-h-11`}
+              >
+                <Video className="size-4" aria-hidden="true" />
+                Войти в конференцию
+              </Link>
               <Tooltip>
                 <Link
                   href={`/meetings/${meeting.id}/edit`}
