@@ -214,7 +214,7 @@ describe('ProfilePage', () => {
     profileMocks.changePassword.mockRejectedValue(
       new ApiError(400, 'Неверный старый пароль'),
     );
-    const userEventInstance = userEvent.setup();
+    const userEventInstance = userEvent.setup({ delay: null });
     render(<ProfilePage />);
 
     await screen.findAllByText('Alice');
@@ -246,7 +246,7 @@ describe('ProfilePage', () => {
   });
 
   it('shows the password confirmation validation error', async () => {
-    const userEventInstance = userEvent.setup();
+    const userEventInstance = userEvent.setup({ delay: null });
     render(<ProfilePage />);
 
     await screen.findAllByText('Alice');
