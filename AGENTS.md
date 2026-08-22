@@ -37,6 +37,7 @@ App-specific scripts are run with `npm run <script> -w @mpixel/api` or `-w @mpix
 - Do not add code comments unless asked.
 - Keep lint and format clean before finishing a task.
 - Node.js >= 20 required (see `engines` in package.json).
+- After each completed piece of work, write a report of the results to the user (what was done, what was verified, what remains). Reports are written in Russian.
 
 When editing files inside `apps/web`, follow the rules in `apps/web/AGENTS.md` (generated and maintained by `next dev`).
 
