@@ -186,6 +186,14 @@ describe('MeetingDetailPage', () => {
     ).toHaveAttribute('href', '/meetings/m1/edit');
   });
 
+  it('links to the conference page', async () => {
+    render(<MeetingDetailPage />);
+
+    expect(
+      await screen.findByRole('link', { name: 'Войти в конференцию' }),
+    ).toHaveAttribute('href', '/meetings/m1/conference');
+  });
+
   it('deletes a meeting after confirming the dialog and navigates to the list', async () => {
     const user = userEvent.setup();
     render(<MeetingDetailPage />);
